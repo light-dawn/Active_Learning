@@ -1,0 +1,8 @@
+data_root:
+  train: data/CC-CCII/train
+  test: data/CC-CCII/test
+
+preprocess:
+  image_shape: 
+    height: 224
+    width: 224
