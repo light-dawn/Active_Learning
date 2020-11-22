@@ -1,4 +1,4 @@
-class HybridSampler(Sampler):
+class HybridSampler:
     def __init__(self, budget):
         self.budget = budget
     

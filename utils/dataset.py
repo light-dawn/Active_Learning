@@ -43,7 +43,6 @@ class ImageSegDataset(Dataset):
     @staticmethod
     def mask_loader(path):
         mask = Image.open(path)
-        mask = mask.convert("RGB")
         return mask
 
     def __getitem__(self, index):
@@ -60,5 +59,8 @@ class ImageSegDataset(Dataset):
 
     def __len__(self):
         return len(self.data_paths)
+
+
+# TODO: VolumeDataset
 
     

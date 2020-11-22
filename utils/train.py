@@ -1,10 +1,17 @@
+import torch
+from tqdm import tqdm
+
+
 # TODO: 训练过程中做validation
-def seg_train_epoch(net, train_loader, device, criterion, optimizer):
+def seg_train_epoch(net, train_loader, test_loader, device, criterion, optimizer, cur_epoch):
     epoch_loss = 0
-    for images, masks in train_loader:
+    process = tqdm(train_loader, leave=True)
+    for images, masks in process:
+        # print(images.size())
+        # print(masks.size())
         # 读取loader中的数据
-        images = images.to(device)
-        true_masks = masks.to(device)
+        images = images.to(device=device, dtype=torch.float32)
+        true_masks = masks.to(device=device, dtype=torch.long)
         assert images.shape[1] == net.n_channels, f"图像通道数与网络通道数不匹配"
 
         # 预测并计算loss
@@ -16,7 +23,7 @@ def seg_train_epoch(net, train_loader, device, criterion, optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    
+        process.set_description(f"Train epoch: {cur_epoch + 1}, Loss: {loss.item()}")
     return epoch_loss
 
 

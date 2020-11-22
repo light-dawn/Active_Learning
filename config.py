@@ -1,13 +1,14 @@
+import sys
+
+sys.path.append("./")
+
 config = {
     "data_root": {
         "active_learn": {
-            "train": "data/CC-CCII/active/train",
-            "test": "data/CC-CCII/active/test"
+            "train": "raw_data/CC-CCII/active/train",
+            "test": "raw_data/CC-CCII/active/test"
         },
-        "segmentation": {
-            "train": "data/CC-CCII/seg/train",
-            "test": "data/CC-CCII/seg/test",
-        }
+        "segmentation": "raw_data/CC-CCII/ct_lesion_seg"
     },
     "preprocess": {
         "image_resized_shape": (224, 224),
@@ -22,13 +23,13 @@ config = {
         "batch_size": 12,
         "task_model": {
             "lr": 1e-3,
-            "momentum": ,
-            "weight_decay": ,
+            "momentum": 0.9,
+            "weight_decay": 5e-4,
         },
         "loss_module": {
             "lr": 1e-3,
-            "momentum": ,
-            "weight_decay": ,
+            "momentum": 0.9,
+            "weight_decay": 5e-4,
         }
     },
     "segmentation": {
