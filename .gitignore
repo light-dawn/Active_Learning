@@ -136,6 +136,6 @@ raw_data/*
 
 runs/*
 
-models/*
-
 checkpoints/*
+
+.idea/*
