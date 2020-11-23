@@ -37,5 +37,6 @@ config = {
         "lr": 1e-3,
         "momentum": 0.9,
         "weight_decay": 5e-4
-    }
+    },
+    "checkpoints_save_dir": "./checkpoints"
 }
