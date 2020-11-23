@@ -133,3 +133,9 @@ dmypy.json
 .data/
 
 raw_data/*
+
+runs/*
+
+checkpoints/*
+
+.idea/*
