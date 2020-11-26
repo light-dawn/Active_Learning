@@ -13,21 +13,27 @@ def eval_net(net, loader, device):
     tot = 0
 
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
-        for batch in loader:
-            imgs, true_masks = batch['image'], batch['mask']
-            imgs = imgs.to(device=device, dtype=torch.float32)
-            true_masks = true_masks.to(device=device, dtype=mask_type)
+        for data, targets in loader:
+            data = data.to(device=device, dtype=torch.float32)
+            targets = targets.to(device=device, dtype=mask_type)
 
             with torch.no_grad():
-                mask_pred = net(imgs)
+                prediction = net(data)
 
             if net.n_classes > 1:
-                tot += F.cross_entropy(mask_pred, true_masks).item()
+                tot += F.cross_entropy(prediction, targets).item()
             else:
-                pred = torch.sigmoid(mask_pred)
+                pred = torch.sigmoid(prediction)
                 pred = (pred > 0.5).float()
-                tot += dice_coeff(pred, true_masks).item()
+                tot += dice_coeff(pred, targets).item()
             pbar.update()
 
     net.train()
     return tot / n_val
+
+
+def infer(net, data, device):
+    net.eval()
+    with torch.no_grad():
+        prediction = net(data)
+    

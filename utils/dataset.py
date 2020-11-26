@@ -2,9 +2,19 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 
+class DatasetUtils:
+    @staticmethod
+    def create_image_cla_dataset(x_info, y_info, x_transform, y_transform):
+        return ImageDataset(x_info, y_info, x_transform, y_transform)
+
+    @staticmethod
+    def create_image_seg_dataset(x_info, y_info, x_transform, y_transform):
+        return ImageSegDataset(x_info, y_info, x_transform, y_transform)
+
+
 # 图像数据集，根据文件路径和标签构造数据集
 class ImageDataset(Dataset):
-    def __init__(self, data_paths, labels, transform=None):
+    def __init__(self, data_paths, labels, transform=None, target_transform=None):
         self.data_paths = data_paths
         self.labels = labels
         self.transform = transform
@@ -16,15 +26,16 @@ class ImageDataset(Dataset):
         return image
 
     def __getitem__(self, index):
-        path = self.filepaths[index]
+        path = self.data_paths[index]
         label = self.labels[index]
         image = self.image_loader(path)
         if self.transform:
             image = self.transform(image)
-        return image, label
+        # 额外返回index，便于主动学习采样
+        return image, label, index
 
     def __len__(self):
-        return len(self.filepaths)
+        return len(self.data_paths)
 
     
 class ImageSegDataset(Dataset):
@@ -55,12 +66,14 @@ class ImageSegDataset(Dataset):
         # TODO: 对mask的transform
         if self.target_transform:
             mask = self.target_transform(mask)
-        return image, mask
+        # 额外返回index，便于主动学习采样
+        return image, mask, index
 
     def __len__(self):
         return len(self.data_paths)
 
 
 # TODO: VolumeDataset
+dataset_utils = DatasetUtils()
 
     

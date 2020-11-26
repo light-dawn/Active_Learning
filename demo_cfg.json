@@ -1,0 +1,21 @@
+{   
+    "active": {
+        "init_budget": 100,
+        "budget": 50,
+        "cycles": 10
+    },
+    "train": {
+        "epochs": 10
+    },
+    "data": {
+        "data_root": "raw_data/CC-CCII/ct_lesion_seg",
+        "batch_size": 24,
+        "n_channels": 3,
+        "n_classes": 4
+    },
+    "optimizer": {
+        "lr": 1e-3,
+        "weight_decay": 5e-4,
+        "momentum": 0.9
+    }
+}

@@ -10,34 +10,59 @@ import torchvision.transforms as transforms
 cur_path = os.path.realpath(os.curdir)
 
 
-# 加载分类任务数据，支持加载的文件结构: root -> categories -> data 
-def load_labeled_data_paths(data_root):
-    paths, labels = [], []
-    for index, category in enumerate(sorted(os.listdir(data_root))):
-        category_path = os.path.join(data_root, category)
-        labels.extend([index for _ in range(len(os.listdir(category_path)))])
-        for file_path in sorted(os.listdir(category_path)):
-            paths.append(os.path.join(category_path, file_path))
-    return paths, labels
+class DataUtils:
+    @staticmethod
+    # 加载分类任务数据，支持加载的文件结构: root -> categories -> data 
+    def load_labeled_data_paths(data_root):
+        paths, labels = [], []
+        for index, category in enumerate(sorted(os.listdir(data_root))):
+            category_path = os.path.join(data_root, category)
+            labels.extend([index for _ in range(len(os.listdir(category_path)))])
+            for file_path in sorted(os.listdir(category_path)):
+                paths.append(os.path.join(category_path, file_path))
+        return paths, labels
 
+    @staticmethod
+    def load_seg_data_paths(root, image_suffix=".jpg", mask_suffix=".png"):
+        """
+        mask_suffix: 掩膜文件的后缀名，用来拼接路径
+        """
+        data_paths, mask_paths = [], []
+        # print(f"cur_path: {cur_path}, root: {root}")
+        data_root, mask_root = os.path.join(cur_path, root, "image"), os.path.join(cur_path, root, "mask")
+        # print(f"数据根目录: {data_root}, 掩模根目录: {mask_root}")
+        # print(os.listdir(data_root))
+        all_mask_paths = [str(item) for item in Path(mask_root).rglob("*" + mask_suffix)]
+        for item in Path(data_root).rglob("*" + image_suffix):
+            image_path = "/".join(str(item).split("/")[-2:])
+            target_mask_path = os.path.join(mask_root, image_path.split(".")[0] + mask_suffix)
+            if target_mask_path in all_mask_paths:
+                data_paths.append(str(item))
+                mask_paths.append(target_mask_path)
+        return data_paths, mask_paths
 
-def load_seg_data_paths(root, image_suffix=".jpg", mask_suffix=".png"):
-    """
-    mask_suffix: 掩膜文件的后缀名，用来拼接路径
-    """
-    data_paths, mask_paths = [], []
-    # print(f"cur_path: {cur_path}, root: {root}")
-    data_root, mask_root = os.path.join(cur_path, root, "image"), os.path.join(cur_path, root, "mask")
-    # print(f"数据根目录: {data_root}, 掩模根目录: {mask_root}")
-    # print(os.listdir(data_root))
-    all_mask_paths = [str(item) for item in Path(mask_root).rglob("*" + mask_suffix)]
-    for item in Path(data_root).rglob("*" + image_suffix):
-        image_path = "/".join(str(item).split("/")[-2:])
-        target_mask_path = os.path.join(mask_root, image_path.split(".")[0] + mask_suffix)
-        if target_mask_path in all_mask_paths:
-            data_paths.append(str(item))
-            mask_paths.append(target_mask_path)
-    return data_paths, mask_paths
+    @staticmethod
+    def image_resize(image):
+        t = transforms.Compose(
+            [
+                transforms.Resize(config["preprocess"]["image_resized_shape"]),
+                transforms.ToTensor()
+            ]
+        )
+        image_tensor = t(image)
+        return image_tensor
+
+    @staticmethod
+    def process_masks(mask):
+        t = transforms.Compose(
+            [
+                transforms.Resize(config["preprocess"]["image_resized_shape"]),
+                transforms.ToTensor(),
+            ]
+        )
+        mask_tensor = t(mask)
+        mask_tensor = mask_tensor.squeeze(0)
+        return mask_tensor
 
     
 # 读取yaml配置文件
@@ -47,28 +72,7 @@ def read_yaml_config(yaml_file):
     return yaml.load(file_data, Loader=yaml.SafeLoader)
 
 
-def image_resize(image):
-    t = transforms.Compose(
-        [
-            transforms.Resize(config["preprocess"]["image_resized_shape"]),
-            transforms.ToTensor()
-        ]
-    )
-    image_tensor = t(image)
-    return image_tensor
-
-
-def process_masks(mask):
-    t = transforms.Compose(
-        [
-            transforms.Resize(config["preprocess"]["image_resized_shape"]),
-            transforms.ToTensor(),
-        ]
-    )
-    mask_tensor = t(mask)
-    mask_tensor = mask_tensor.squeeze(0)
-    return mask_tensor
-
+data_utils = DataUtils()
 
 if __name__ == "__main__":
     # print(path)
