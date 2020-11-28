@@ -1,8 +1,8 @@
-from tasks.base_tasks import DeepActiveSegTask, DeepActiveClaTask
+from tasks.base_tasks import DeepActiveTask
 from sampler import RandomSampler 
 
 
-class RandomSegPipeline(DeepActiveSegTask):
+class RandomSegPipeline(DeepActiveTask):
     def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
                  init_budget, budget, cycles):
         super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, 

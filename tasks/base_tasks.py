@@ -83,9 +83,10 @@ class DeepTask(BaseTask):
         raise NotImplementedError
 
 
-class ActiveTask(BaseTask):
-    def __init__(self, task_name, model, dataset, init_budget, budget, cycles):
-        super().__init__(task_name, model, dataset)
+class DeepActiveTask(DeepTask):
+    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
+                 init_budget, budget, cycles):
+        super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
         self.budget = budget
         self.cycles = cycles
         self.unlabeled_indices, self.labeled_indices = self._init_labeling(init_budget)
@@ -101,61 +102,11 @@ class ActiveTask(BaseTask):
     def query_and_move(self, queried_indices):
         self.labeled_indices.extend(queried_indices)
         self.unlabeled_indices = np.setdiff1d(self.unlabeled_indices, queried_indices)
-        
-
-class DeepClaTask(DeepTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size):
-        super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
-
-    def test(self, test_loader):
-        self.model.eval()
-        total = 0
-        correct = 0
-        with torch.no_grad():
-            for data, targets in test_loader:
-                data = data.to(devices)
-                targets = targets.to(devices)
-
-                scores, _ = self.model(data)
-                _, preds = torch.max(scores.data, 1)
-                total += targets.size(0)
-                correct += (preds == targets).sum().item()
-        return 100 * correct / total
-
-
-class DeepSegTask(DeepTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size):
-        super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
-
-    def test(self, test_loader):
-        raise NotImplementedError
-
-
-class DeepActiveTask(DeepTask, ActiveTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                 init_budget, budget, cycles):
-        DeepTask.__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
-        ActiveTask.__init__(task_name, model, dataset, init_budget, budget, cycles)
 
     def get_cur_train_loader(self):
         sampler = SubsetRandomSampler(self.labeled_indices)
         return DataLoader(self.dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=False)
-
-    
-class DeepActiveSegTask(DeepSegTask, DeepActiveTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                 init_budget, budget, cycles):
-        DeepSegTask.__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
-        DeepActiveTask.__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                                init_budget, budget, cycles)
-
-
-class DeepActiveClaTask(DeepClaTask, DeepActiveTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                 init_budget, budget, cycles):
-        DeepClaTask.__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
-        DeepActiveTask.__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                                init_budget, budget, cycles)
+        
         
 
 if __name__ == "__main__":
