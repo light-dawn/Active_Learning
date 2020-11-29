@@ -23,19 +23,26 @@ class DataUtils:
         return paths, labels
 
     @staticmethod
-    def load_seg_data_paths(root, image_suffix=".jpg", mask_suffix=".png"):
+    # sep is "/" for MacOS and "\\" for Windows
+    def load_seg_data_paths(root, image_suffix=".jpg", mask_suffix=".png", sep="/"):
         """
         mask_suffix: 掩膜文件的后缀名，用来拼接路径
         """
         data_paths, mask_paths = [], []
         # print(f"cur_path: {cur_path}, root: {root}")
         data_root, mask_root = os.path.join(cur_path, root, "image"), os.path.join(cur_path, root, "mask")
-        # print(f"数据根目录: {data_root}, 掩模根目录: {mask_root}")
+        # print(f"data dir: {data_root}, mask dir: {mask_root}")
         # print(os.listdir(data_root))
-        all_mask_paths = [str(item) for item in Path(mask_root).rglob("*" + mask_suffix)]
+        # Handle the different seperation on different operation systems.
+        all_mask_paths = [str(item).replace("\\", sep) for item in Path(mask_root).rglob("*" + mask_suffix)]
+        all_mask_paths = [str(item).replace("/", sep) for item in all_mask_paths]
+        # print("all_mask_paths: ", all_mask_paths[0])
         for item in Path(data_root).rglob("*" + image_suffix):
-            image_path = "/".join(str(item).split("/")[-2:])
-            target_mask_path = os.path.join(mask_root, image_path.split(".")[0] + mask_suffix)
+            image_path = sep.join(str(item).split(sep)[-2:])
+            # print("image path: ", image_path)
+            target_mask_path = os.path.join(mask_root, image_path.split(".")[0] + mask_suffix).replace("\\", sep)
+            target_mask_path = target_mask_path.replace("/", sep)
+            # print("target mask path: ", target_mask_path)
             if target_mask_path in all_mask_paths:
                 data_paths.append(str(item))
                 mask_paths.append(target_mask_path)

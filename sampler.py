@@ -35,6 +35,8 @@ class RandomSampler:
         for _, _, indices in dataloader:
             all_indices.extend(indices)
         query_indices = random.sample(all_indices, self.budget)
+        # call .item() to get the value of the indices instead of type Tensor
+        query_indices = [index.item() for index in query_indices]
         return query_indices
 
 

@@ -1,3 +1,4 @@
+# encoding=utf-8
 from models import unet
 from tasks.random_samping import RandomSegPipeline
 import json
@@ -22,9 +23,10 @@ if __name__ == "__main__":
     # 模型
     model = unet.UNet(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
     # 数据集
-    data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"])
+    data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"], sep="\\")
+    print("Data path numbers: ", len(data_paths))
     dataset = ImageSegDataset(data_paths, mask_paths, DataUtils.image_resize, DataUtils.process_masks)
-    print("数据池大小: ", len(dataset))
+    print("Dataset size: ", len(dataset))
     # 优化器
     optimizer = optim.RMSprop(model.parameters(), lr=config["optimizer"]["lr"], 
                               weight_decay=config["optimizer"]["weight_decay"], 

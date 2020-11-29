@@ -141,3 +141,5 @@ checkpoints/*
 .idea/*
 
 __pycache__/*
+
+.vscode/*

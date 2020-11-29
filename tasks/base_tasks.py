@@ -7,7 +7,7 @@ from utils.data import DataUtils
 from config import config
 from utils.dataset import dataset_utils
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import SubsetRandomSampler
+from torch.utils.data import SubsetRandomSampler, DataLoader
 
 
 # 任务类型映射到方法名称，用于反射调用
@@ -44,14 +44,18 @@ class DeepTask(BaseTask):
         self.epochs = epochs
         self.batch_size = batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
         self.writer = SummaryWriter(os.path.join(config["tensorboard_log_dir"], self.task_name))
         self.cur_epoch = 1
+        
 
     def train_epoch(self, train_loader):
         self.model.train()
         epoch_loss = 0
+        print("Length of the TrainLoader: ", len(train_loader))
         process = tqdm(train_loader, leave=True)
-        for data, targets in process:
+        # Assume that the __getitem__ method in Dataset returns (data, targets, indices)
+        for data, targets, _ in process:
             data = data.to(device=self.device, dtype=torch.float32)
             targets = targets.to(device=self.device, dtype=torch.long)
             assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
@@ -65,8 +69,7 @@ class DeepTask(BaseTask):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            process.set_description(f"Train epoch: {cur_epoch + 1}, Loss: {loss.item()}")
-   
+            process.set_description(f"Train epoch: {self.cur_epoch}, Loss: {loss.item()}")
         return epoch_loss
 
     def train(self, train_loader):
@@ -90,6 +93,10 @@ class DeepActiveTask(DeepTask):
         self.budget = budget
         self.cycles = cycles
         self.unlabeled_indices, self.labeled_indices = self._init_labeling(init_budget)
+        print("Labeled dataset initialized.")
+        print("Current labeled number: ", len(self.labeled_indices))
+        print("Current unlabeled number: ", len(self.unlabeled_indices))
+        print("Unlabeled indices: ", self.unlabeled_indices)
 
     def _init_labeling(self, init_budget):
         unlabeled_indices = list(range(len(self.dataset)))
@@ -101,10 +108,23 @@ class DeepActiveTask(DeepTask):
 
     def query_and_move(self, queried_indices):
         self.labeled_indices.extend(queried_indices)
+        print("Labeled indices: ", self.labeled_indices)
+        print("Unlabeled indices: ", self.unlabeled_indices)
+        count = 0
+        for i in queried_indices:
+            if i not in self.unlabeled_indices:
+                print(f"{i} not in unlabeled_indices")
+                count += 1
+        print("Not in count: ", count)
         self.unlabeled_indices = np.setdiff1d(self.unlabeled_indices, queried_indices)
+        self.cur_epoch = 1
 
-    def get_cur_train_loader(self):
-        sampler = SubsetRandomSampler(self.labeled_indices)
+    def get_cur_data_loader(self, part="labeled"):
+        assert part in ("labeled", "unlabeled"), "parameter 'part' must be 'labeled' or 'unlabeled'"
+        if part == "labeled":
+            sampler = SubsetRandomSampler(self.labeled_indices)
+        else:
+            sampler = SubsetRandomSampler(self.unlabeled_indices)
         return DataLoader(self.dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=False)
         
         
