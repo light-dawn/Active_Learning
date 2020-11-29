@@ -107,3 +107,32 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.outc(x)
         return logits
+
+# UNet with feature maps
+class UNet_FM(UNet):
+    def __init__(self, n_channels, n_classes, bilinear=True):
+        super(UNet_FM, self).__init__(n_channels, n_classes, bilinear)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        # print("x1: ", x1.size())
+        x2 = self.down1(x1)
+        # print("x2: ", x2.size())
+        x3 = self.down2(x2)
+        # print("x3: ", x3.size())
+        x4 = self.down3(x3)
+        # print("x4: ", x4.size())
+        x5 = self.down4(x4)
+        # print("x5: ", x5.size())
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        logits = self.outc(x)
+        return logits, [x2, x3, x4, x5]
+
+
+if __name__ == "__main__":
+    model = UNet_FM(3, 4)
+    x = torch.zeros((12, 3, 224, 224))
+    model(x)

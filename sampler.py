@@ -68,7 +68,7 @@ class LossPredictionSampler:
     def __init__(self, budget):
         self.budget = budget
 
-    def sample(self, dataloader):
+    def sample(self, dataloader, lossnet):
         all_indices = []
         for _, _, indices in dataloader:
             all_indices.extend(indices)

@@ -3,6 +3,10 @@
         "n_channels": 3,
         "n_classes": 4
     },
+    "lossnet": {
+        "feature_sizes": [112, 56, 28, 14],
+        "num_channels": [128, 256, 512, 512]
+    },
     "active": {
         "init_budget": 100,
         "budget": 50,
@@ -14,7 +18,7 @@
     },
     "data": {
         "data_root": "raw_data/ct_lesion_seg",
-        "image_resize_shape": [224, 224]
+        "data_resize_shape": [224, 224]
     },
     "optimizer": {
         "lr": 1e-3,

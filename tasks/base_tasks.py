@@ -10,21 +10,6 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import SubsetRandomSampler, DataLoader
 
 
-# 任务类型映射到方法名称，用于反射调用
-dataset_map = { # 构造数据集
-    "cla": "create_image_cla_dataset",
-    "seg": "create_image_seg_dataset"
-}
-data_load_map = { # 加载数据路径
-    "cla": "load_labeled_data_paths",
-    "seg": "load_seg_data_paths"
-}
-transform_map = { # 预处理变换
-    "cla": {"x": "image_resize", "y": None},
-    "seg": {"x": "image_resize", "y": "process_masks"}
-}
-
-
 class BaseTask:
     def __init__(self, task_name, model, dataset):
         self.task_name = task_name
@@ -69,7 +54,7 @@ class DeepTask(BaseTask):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            process.set_description(f"Train epoch: {self.cur_epoch}, Loss: {loss.item()}")
+            process.set_description(f"Train epoch: {self.cur_epoch}, Loss: {loss.item():.5f}")
         return epoch_loss
 
     def train(self, train_loader):
@@ -93,10 +78,10 @@ class DeepActiveTask(DeepTask):
         self.budget = budget
         self.cycles = cycles
         self.unlabeled_indices, self.labeled_indices = self._init_labeling(init_budget)
-        print("Labeled dataset initialized.")
-        print("Current labeled number: ", len(self.labeled_indices))
-        print("Current unlabeled number: ", len(self.unlabeled_indices))
-        print("Unlabeled indices: ", self.unlabeled_indices)
+        # print("Labeled dataset initialized.")
+        # print("Current labeled number: ", len(self.labeled_indices))
+        # print("Current unlabeled number: ", len(self.unlabeled_indices))
+        # print("Unlabeled indices: ", self.unlabeled_indices)
 
     def _init_labeling(self, init_budget):
         unlabeled_indices = list(range(len(self.dataset)))
