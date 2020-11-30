@@ -1,5 +1,5 @@
 from tasks.base_tasks import DeepActiveTask
-from sampler import RandomSampler
+from sampler import HybridSampler
 
 from models import unet
 import json
@@ -12,12 +12,13 @@ from torch import nn, optim
 import os
 
 
-class RandomSegPipeline(DeepActiveTask):
+class HybridPipeline(DeepActiveTask):
     def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                 init_budget, budget, cycles):
+                 init_budget, budget, cycles, lossnet_feature_sizes, lossnet_num_channels):
         super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
                          init_budget, budget, cycles)
-        self.sampler = RandomSampler(self.budget)
+        self.lossnet = lossnet.LossNet(feature_sizes=lossnet_feature_sizes, num_channels=lossnet_num_channels)
+        self.sampler = HybridSampler(self.budget, self.lossnet, self.model, self.device)
     
     def run(self):
         for cycle in range(self.cycles):
@@ -26,14 +27,14 @@ class RandomSegPipeline(DeepActiveTask):
             labeled_loader = self.get_cur_data_loader(part="labeled")
             unlabeled_loader = self.get_cur_data_loader(part="unlabeled")
             self.train(labeled_loader)
-            query_indices = self.sampler.sample(unlabeled_loader)
+            query_indices = self.sampler.sample(labeled_loader, unlabeled_loader)
             self.query_and_move(query_indices)
             print("Query and move data...")
 
 
 def pipeline(config):
     # 模型
-    model = unet.UNet(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
+    model = unet.UNet_FM(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
     # 数据集
     data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"], sep="\\")
     print("Data path numbers: ", len(data_paths))
@@ -51,8 +52,12 @@ def pipeline(config):
     # 初始标注预算
     init_budget, budget, cycles = config["active"]["init_budget"], config["active"]["budget"], config["active"]["cycles"]
     epochs, batch_size = config["train"]["epochs"], config["train"]["batch_size"]
+    # 损失网络定义
+    lossnet_feature_sizes = config["lossnet"]["feature_sizes"]
+    lossnet_num_channels = config["lossnet"]["num_channels"]
     # 任务
-    task = RandomSegPipeline("random_sampling_trail", model, dataset, optimizer, criterion, epochs, batch_size, init_budget, budget, cycles)
+    task = HybridPipeline("hybrid_trail", model, dataset, optimizer, criterion, epochs, batch_size, 
+                          init_budget, budget, cycles, lossnet_feature_sizes, lossnet_num_channels)
     task.run()
 
 

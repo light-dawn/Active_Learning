@@ -1,5 +1,5 @@
 from tasks.base_tasks import DeepActiveTask
-from sampler import RandomSampler
+from sampler import OMedALSampler
 
 from models import unet
 import json
@@ -12,12 +12,12 @@ from torch import nn, optim
 import os
 
 
-class RandomSegPipeline(DeepActiveTask):
+class OMedALPipeline(DeepActiveTask):
     def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
                  init_budget, budget, cycles):
         super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
                          init_budget, budget, cycles)
-        self.sampler = RandomSampler(self.budget)
+        self.sampler = OMedALSampler(self.budget, self.model, self.device)
     
     def run(self):
         for cycle in range(self.cycles):
@@ -26,7 +26,7 @@ class RandomSegPipeline(DeepActiveTask):
             labeled_loader = self.get_cur_data_loader(part="labeled")
             unlabeled_loader = self.get_cur_data_loader(part="unlabeled")
             self.train(labeled_loader)
-            query_indices = self.sampler.sample(unlabeled_loader)
+            query_indices = self.sampler.sample(labeled_loader, unlabeled_loader)
             self.query_and_move(query_indices)
             print("Query and move data...")
 
@@ -52,7 +52,7 @@ def pipeline(config):
     init_budget, budget, cycles = config["active"]["init_budget"], config["active"]["budget"], config["active"]["cycles"]
     epochs, batch_size = config["train"]["epochs"], config["train"]["batch_size"]
     # 任务
-    task = RandomSegPipeline("random_sampling_trail", model, dataset, optimizer, criterion, epochs, batch_size, init_budget, budget, cycles)
+    task = OMedALPipeline("omedal_trail", model, dataset, optimizer, criterion, epochs, batch_size, init_budget, budget, cycles)
     task.run()
 
 

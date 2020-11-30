@@ -15,9 +15,9 @@ import os
 
 class LossPredSegPipeline(DeepActiveTask):
     def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                 init_budget, budget, cycles):
+                 init_budget, budget, cycles, lossnet_feature_sizes, lossnet_num_channels):
         super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                         init_budget, budget, cycles, lossnet_feature_sizes, lossnet_num_channels)
+                         init_budget, budget, cycles)
         self.sampler = LossPredictionSampler(self.budget)
         self.lossnet = lossnet.LossNet(feature_sizes=lossnet_feature_sizes, num_channels=lossnet_num_channels)
         self.lossnet.to(self.device)
@@ -68,11 +68,7 @@ class LossPredSegPipeline(DeepActiveTask):
             print("Query and move data...")
 
 
-def loss_pred_sampling():
-    # 之后调整为读取控制台参数
-    with open("loss_pred_cfg.json", "r") as f:
-        config = json.loads(f.read())
-    # print(config)
+def pipeline(config):
     # 模型
     model = unet.UNet_FM(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
     # 数据集
@@ -96,7 +92,7 @@ def loss_pred_sampling():
     lossnet_feature_sizes = config["lossnet"]["feature_sizes"]
     lossnet_num_channels = config["lossnet"]["num_channels"]
     # 任务
-    task = LossPredSegPipeline("active_seg_demo", model, dataset, optimizer, criterion, epochs, batch_size, 
+    task = LossPredSegPipeline("loss_pred_trail", model, dataset, optimizer, criterion, epochs, batch_size, 
                              init_budget, budget, cycles, lossnet_feature_sizes, lossnet_num_channels)
     task.run()
 
