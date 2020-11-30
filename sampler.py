@@ -5,12 +5,6 @@ import json
 from models import unet
 from utils.network import register_embedding_hook
 
-# class HybridSampler:
-#     def __init__(self, budget):
-#         self.budget = budget
-    
-#     def sample(self, lossnet, data_loader, device):
-#         raise NotImplementedError
 
 class SamplerUtils:
     def get_sampler(sampler_name, budget):
@@ -191,12 +185,7 @@ class CoreSetSampler:
         self.budget = budget
 
     def sample(self, dataloader):
-        all_indices = []
-        for _, _, indices in dataloader:
-            all_indices.extend(indices)
-        query_indices = random.sample(all_indices, self.budget)
-        return query_indices
-
+        raise NotImplementedError
 
 
 class EntropySampler:
@@ -204,11 +193,7 @@ class EntropySampler:
         self.budget = budget
 
     def sample(self, dataloader):
-        all_indices = []
-        for _, _, indices in dataloader:
-            all_indices.extend(indices)
-        query_indices = random.sample(all_indices, self.budget)
-        return query_indices
+        raise NotImplementedError
 
 
 if __name__ == "__main__":
