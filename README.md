@@ -1,31 +1,22 @@
 # Active_Learning
 
-这是一个主动学习的仓库。
+This is a repository for active learning.
 
-目标是搭建一个支持多种采样策略、易于配置的主动学习框架。
-
-
-
-### 采样策略
-
-1. 随机采样 random sampling
-2. 基于预测损失 loss prediction
-3. 基于特征向量距离 embedding
-4. 混合策略 hybrid
+The final goal of this project is to construct a general active learning framework which applies multiple active learning strategy.
 
 
 
-### 学习任务
+#### Sampling Strategy
+1. Random sampling
+2. Loss prediction
+3. Embedding distance
+4. Hybrid
 
-#### 图像
+#### Learning Task
+1. Image classification
+2. Image Segmentation
 
-1. 分类
-2. 分割
-
-
-
-### 模型
-
+#### Model
 1. UNet
 2. ResNet
 
