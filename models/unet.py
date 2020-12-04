@@ -135,4 +135,5 @@ class UNet_FM(UNet):
 if __name__ == "__main__":
     model = UNet_FM(3, 4)
     x = torch.zeros((12, 3, 224, 224))
-    model(x)
+    output, _ = model(x)
+    print(output.size())

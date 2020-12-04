@@ -9,6 +9,7 @@ def pixel_accuracy(eval_segm, gt_segm):
     check_size(eval_segm, gt_segm)
 
     cl, n_cl = extract_classes(gt_segm)
+    print(f"Class numbers: {n_cl}")
     eval_mask, gt_mask = extract_both_masks(eval_segm, gt_segm, cl, n_cl)
 
     sum_n_ii = 0
@@ -172,6 +173,8 @@ def check_size(eval_segm, gt_segm):
     h_g, w_g = segm_size(gt_segm)
 
     if (h_e != h_g) or (w_e != w_g):
+        print(f"Predicted: Height-{h_e}, Width-{w_e}")
+        print(f"Ground-truth: Height-{h_g}, Width-{w_g}")
         raise EvalSegErr("DiffDim: Different dimensions of matrices!")
 
 

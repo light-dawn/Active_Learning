@@ -42,7 +42,7 @@ def pipeline(config):
     # 模型
     model = unet.UNet(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
     # 数据集
-    data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"], sep="/")
+    data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"], sep="\\")
     print("Data path numbers: ", len(data_paths))
     dataset = ImageSegDataset(data_paths, mask_paths, DataUtils.image_resize, DataUtils.process_masks)
     print("Dataset size: ", len(dataset))

@@ -71,18 +71,22 @@ class DeepTask(BaseTask):
         pa, mpa, miou, fwiou = 0.0, 0.0, 0.0, 0.0
         self.model.eval()
         process = tqdm(test_loader, leave=True)
-        for data, targets, _ in process:
-            data = data.to(device=self.device, dtype=torch.float32)
-            targets = targets.to(device=self.device, dtype=torch.long)
-            assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
-
-            prediction = self.model(data)
-            for pred, target in zip(prediction, targets):
-                total += 1
-                pa += pixel_accuracy(pred, target)
-                mpa += mean_accuracy(pred, target)
-                miou += mean_IU(pred, target)
-                fwiou += frequency_weighted_IU(pred, target)
+        with torch.no_grad():
+            for data, targets, _ in process:
+                data = data.to(device=self.device, dtype=torch.float32)
+                targets = targets.to(device=self.device, dtype=torch.long)
+                assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
+                prediction = self.model(data)
+                for pred, target in zip(prediction, targets):
+                    target = target.cpu().numpy()
+                    pred = pred.cpu().numpy()
+                    pred = DataUtils.seg_pred_to_mask(pred)
+                    total += 1
+                    pa += pixel_accuracy(pred, target)
+                    mpa += mean_accuracy(pred, target)
+                    miou += mean_IU(pred, target)
+                    fwiou += frequency_weighted_IU(pred, target)
+            print({"pixel_acc": pa, "mean_pixel_acc": mpa, "mean_iou": miou, "frequency_weighted_iou": fwiou})
         if total:
             pa, mpa, miou, fwiou = pa / total, mpa / total, miou / total, fwiou / total
         else:

@@ -4,6 +4,7 @@ sys.path.append("./")
 import os
 from pathlib import Path
 import torchvision.transforms as transforms
+import numpy as np
 
 # 获取当前目录的绝对路径
 cur_path = os.path.realpath(os.curdir)
@@ -30,14 +31,14 @@ class DataUtils:
         mask_suffix: 掩膜文件的后缀名，用来拼接路径
         """
         data_paths, mask_paths = [], []
-        print(f"cur_path: {cur_path}, root: {root}")
+        # print(f"cur_path: {cur_path}, root: {root}")
         data_root, mask_root = os.path.join(cur_path, root, "image"), os.path.join(cur_path, root, "mask")
-        print(f"data dir: {data_root}, mask dir: {mask_root}")
-        print(os.listdir(data_root))
+        # print(f"data dir: {data_root}, mask dir: {mask_root}")
+        # print(os.listdir(data_root))
         # Handle the different seperation on different operation systems.
         all_mask_paths = [str(item).replace("\\", sep) for item in Path(mask_root).rglob("*" + mask_suffix)]
         all_mask_paths = [str(item).replace("/", sep) for item in all_mask_paths]
-        print("all_mask_paths: ", all_mask_paths[0])
+        # print("all_mask_paths: ", all_mask_paths[0])
         for item in Path(data_root).rglob("*" + image_suffix):
             image_path = sep.join(str(item).split(sep)[-2:])
             # print("image path: ", image_path)
@@ -74,7 +75,12 @@ class DataUtils:
         mask_tensor = mask_tensor.squeeze(0)
         return mask_tensor
 
-    
+    @staticmethod
+    def seg_pred_to_mask(pred):
+        pred = np.argmax(pred, axis=0)
+        return pred
+
+
 # 读取yaml配置文件
 def read_yaml_config(yaml_file):
     with open(yaml_file, "r", encoding="utf-8") as file:
