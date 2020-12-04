@@ -63,7 +63,6 @@ class ImageSegDataset(Dataset):
         mask = self.mask_loader(mask_path)
         if self.transform:
             image = self.transform(image)
-        # TODO: 对mask的transform
         if self.target_transform:
             mask = self.target_transform(mask)
         # 额外返回index，便于主动学习采样

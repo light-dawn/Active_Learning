@@ -13,7 +13,7 @@ import random
 from torch.utils.tensorboard import SummaryWriter
 import os
 from evaluation import eval_net
-import numpy as
+import numpy as np
 
 
 # 配置训练设备
@@ -83,7 +83,6 @@ def deep_active_learn():
     # active_sampler = sampler.HybridSampler()
 
 
-# TODO: 测试
 # 分割深度学习调这个接口
 def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
     # TensorBoard日志记录
@@ -106,7 +105,8 @@ def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
     test_loader = DataLoader(data_pool, batch_size=batch_size, pin_memory=False, sampler=test_sampler)
 
     # 声明模型
-    net = unet.UNet(n_channels=3, n_classes=3)
+    net = unet.UNet(n_channels=3, n_classes=4)
+    net = net.to(device)
     model_name = "UNet"
     writer.add_graph(net, torch.zeros(1, 3, 224, 224))
 
@@ -119,7 +119,6 @@ def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
     if not os.path.exists(config["checkpoints_save_dir"]):
         os.mkdir(config["checkpoints_save_dir"])
     # 训练
-    # TODO: tqdm过程中展示acc和loss
     for epoch in range(epochs):
         epoch_loss = train_epoch(net, train_loader, device, criterion, optimizer, epoch)
         dice = eval_net(net, test_loader, device)

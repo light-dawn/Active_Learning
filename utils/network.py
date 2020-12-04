@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 # Now we can use this function in a "with" grammer
 @contextmanager
 def register_embedding_hook(layer, output_arr):

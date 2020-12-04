@@ -2,7 +2,6 @@
 import sys
 sys.path.append("./")
 import os
-from config import config
 from pathlib import Path
 import torchvision.transforms as transforms
 
@@ -20,6 +19,8 @@ class DataUtils:
             labels.extend([index for _ in range(len(os.listdir(category_path)))])
             for file_path in sorted(os.listdir(category_path)):
                 paths.append(os.path.join(category_path, file_path))
+        assert len(paths) == len(labels), "The number of data paths and labels not match."
+        assert len(paths) > 0 and len(labels) > 0, "No paths and labels are loaded."
         return paths, labels
 
     @staticmethod
@@ -29,14 +30,14 @@ class DataUtils:
         mask_suffix: 掩膜文件的后缀名，用来拼接路径
         """
         data_paths, mask_paths = [], []
-        # print(f"cur_path: {cur_path}, root: {root}")
+        print(f"cur_path: {cur_path}, root: {root}")
         data_root, mask_root = os.path.join(cur_path, root, "image"), os.path.join(cur_path, root, "mask")
-        # print(f"data dir: {data_root}, mask dir: {mask_root}")
-        # print(os.listdir(data_root))
+        print(f"data dir: {data_root}, mask dir: {mask_root}")
+        print(os.listdir(data_root))
         # Handle the different seperation on different operation systems.
         all_mask_paths = [str(item).replace("\\", sep) for item in Path(mask_root).rglob("*" + mask_suffix)]
         all_mask_paths = [str(item).replace("/", sep) for item in all_mask_paths]
-        # print("all_mask_paths: ", all_mask_paths[0])
+        print("all_mask_paths: ", all_mask_paths[0])
         for item in Path(data_root).rglob("*" + image_suffix):
             image_path = sep.join(str(item).split(sep)[-2:])
             # print("image path: ", image_path)
@@ -46,13 +47,15 @@ class DataUtils:
             if target_mask_path in all_mask_paths:
                 data_paths.append(str(item))
                 mask_paths.append(target_mask_path)
+        assert len(data_paths) == len(mask_paths), "The number of data paths and mask paths not match."
+        assert len(data_paths) > 0 and len(mask_paths) > 0, "No data paths are loaded."
         return data_paths, mask_paths
 
     @staticmethod
     def image_resize(image):
         t = transforms.Compose(
             [
-                transforms.Resize(config["preprocess"]["image_resized_shape"]),
+                transforms.Resize([224, 224]),
                 transforms.ToTensor()
             ]
         )
@@ -63,7 +66,7 @@ class DataUtils:
     def process_masks(mask):
         t = transforms.Compose(
             [
-                transforms.Resize(config["preprocess"]["image_resized_shape"]),
+                transforms.Resize([224, 224]),
                 transforms.ToTensor(),
             ]
         )
