@@ -2,6 +2,7 @@ import os
 import torch
 import random
 import numpy as np
+import datetime
 from tqdm import tqdm
 from utils.data import DataUtils
 from utils.dataset import dataset_utils
@@ -15,6 +16,8 @@ class BaseTask:
         self.task_name = task_name
         self.model = model
         self.dataset = dataset
+        if self.task_name:
+            print(f"Task: {task_name}")
 
     # 完整执行整个task的方法
     def run():
@@ -26,7 +29,7 @@ class BaseTask:
 
 
 class DeepTask(BaseTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size):
+    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, write_tensorboard=False):
         super().__init__(task_name, model, dataset)
         self.optimizer = optimizer
         self.criterion = criterion
@@ -34,7 +37,9 @@ class DeepTask(BaseTask):
         self.batch_size = batch_size
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
-        self.writer = SummaryWriter(os.path.join("runs", self.task_name))
+        self.writer = SummaryWriter(os.path.join("runs", self.task_name+"-"+
+                      datetime.datetime.strftime(datetime.datetime.now(), 
+                      "%Y-%m-%d-%H-%M-%S"))) if write_tensorboard else None
         self.cur_epoch = 1
         
     def train_epoch(self, train_loader):
@@ -61,11 +66,15 @@ class DeepTask(BaseTask):
         return epoch_loss
 
     def train(self, train_loader):
+        train_loss = 0
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(train_loader)
             print(f"Epoch: {self.cur_epoch}, Loss: {epoch_loss}")
+            # self.save_model_state_dict(os.path.join("checkpoints", self.task_name+"_Epoch_"+str(self.cur_epoch)+".pth"))
             self.cur_epoch += 1
-
+            train_loss += epoch_loss
+        return train_loss
+            
     def eval_seg(self, test_loader):
         total = 0
         pa, mpa, miou, fwiou = 0.0, 0.0, 0.0, 0.0
@@ -93,6 +102,20 @@ class DeepTask(BaseTask):
             raise Exception("total number of data is 0")
         return {"pixel_acc": pa, "mean_pixel_acc": mpa, "mean_iou": miou, "frequency_weighted_iou": fwiou}
 
+    def infer(self, data_dir):
+        self.model.eval()
+        data = DataUtils.load_and_preprocess_single_image(data_dir)
+        with torch.no_grad():
+            pred = self.model(data)
+        mask = DataUtils.create_visual_anno(pred)
+        return mask
+
+    def save_model_state_dict(self, save_dir):
+        torch.save(self.model.state_dict(), save_dir)
+    
+    def load_model_state_dict(self, state_dict):
+        self.model.load_state_dict(state_dict)
+
     def run(self):
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(train_loader)
@@ -100,7 +123,8 @@ class DeepTask(BaseTask):
             self.cur_epoch += 1
 
     def end(self):
-        self.writer.close()
+        if self.writer:
+            self.writer.close()
 
     # 测试方法依赖于不同任务的评估方式，放到子类实现
     def validation(self, test_loader):

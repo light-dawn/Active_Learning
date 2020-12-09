@@ -4,7 +4,7 @@
         "n_classes": 4
     },
     "train": {
-        "epochs": 50,
+        "epochs": 1,
         "batch_size": 2
     },
     "data": {
@@ -15,5 +15,9 @@
         "lr": 1e-4,
         "weight_decay": 5e-4,
         "momentum": 0.9
+    },
+    "federate": {
+        "round": 50,
+        "client_num": 2
     }
 }

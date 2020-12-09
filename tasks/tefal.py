@@ -1,21 +1,14 @@
-from tasks.base_tasks import DeepTask
-from models import unet
-import json
-from utils.data import DataUtils
-from utils.dataset import ImageSegDataset
-from torch.utils.data import DataLoader, SubsetRandomSampler
 from torch import nn, optim
 import os
 import random
 
 
-class DeepSegPipeline(DeepTask):
-    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, 
-                 save_weight=False, write_tensorboard=False):
-        super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size, write_tensorboard)
+class TEFALPipeline(DeepTask):
+    def __init__(self, task_name, model, dataset, optimizer, criterion, epochs, batch_size, save_weight=False):
+        super().__init__(task_name, model, dataset, optimizer, criterion, epochs, batch_size)
         self.save_weight = save_weight
     
-    def get_train_test_loader(self, test_size=0.2, seed=2020):
+    def get_train_test_loader(self, test_size=0.3, seed=2020):
         random.seed(seed)
         indices = list(range(len(self.dataset)))
         random.shuffle(indices)
@@ -30,19 +23,18 @@ class DeepSegPipeline(DeepTask):
         train_loader, test_loader = self.get_train_test_loader()
         for _ in range(self.epochs):
             epoch_loss = self.train_epoch(train_loader)
-            if self.writer:
-                self.writer.add_scalar("Loss/train", epoch_loss, self.cur_epoch)
+            self.writer.add_scalar("Loss/train", epoch_loss, self.cur_epoch)
             print(f"Epoch: {self.cur_epoch}")
             print(f"Loss: {epoch_loss}")
             metrics = self.eval_seg(test_loader)
             for metric_name, metric_value in metrics.items():
                 print(f"{metric_name}: {metric_value}")
-                if self.writer:
-                    self.writer.add_scalar(metric_name+"/eval", metric_value, self.cur_epoch)
+                self.writer.add_scalar(metric_name+"/eval", metric_value, self.cur_epoch)
             if self.save_weight:
                 self.save_model_state_dict(os.path.join("checkpoints", self.task_name+"_Epoch_"+str(self.cur_epoch)+".pth"))
             self.cur_epoch += 1
             
+
 
 def pipeline(config):
     # 模型
@@ -63,7 +55,7 @@ def pipeline(config):
         criterion = nn.BCEWithLogitsLoss()
     epochs, batch_size = config["train"]["epochs"], config["train"]["batch_size"]
     # 任务
-    task = DeepSegPipeline("deep_seg_trail", model, dataset, optimizer, criterion, epochs, batch_size, write_tensorboard=True)
+    task = DeepSegPipeline("deep_seg_trail", model, dataset, optimizer, criterion, epochs, batch_size)
     task.run()
     task.end()
 

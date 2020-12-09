@@ -1,4 +1,6 @@
 import numpy as np
+from PIL import Image
+from utils.data import DataUtils
 
 
 def pixel_accuracy(eval_segm, gt_segm):
@@ -9,7 +11,7 @@ def pixel_accuracy(eval_segm, gt_segm):
     check_size(eval_segm, gt_segm)
 
     cl, n_cl = extract_classes(gt_segm)
-    print(f"Class numbers: {n_cl}")
+    # print(f"Class numbers: {n_cl}")
     eval_mask, gt_mask = extract_both_masks(eval_segm, gt_segm, cl, n_cl)
 
     sum_n_ii = 0
@@ -187,3 +189,17 @@ class EvalSegErr(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+
+if __name__ == "__main__":
+    # _, mask_paths = DataUtils.load_seg_data_paths("raw_data/ct_lesion_seg", sep="\\")
+    # for mask_path in mask_paths:
+    #     demo_mask = Image.open(mask_path)
+    #     demo_mask = np.array(demo_mask)
+    #     print(demo_mask.shape)
+    #     print(extract_classes(demo_mask))
+
+    demo_mask = Image.open("raw_data/ct_lesion_seg/mask/0/23.png")
+    demo_mask = DataUtils.process_masks(demo_mask)
+    print(demo_mask.size())
+    print(extract_classes(demo_mask.numpy()))

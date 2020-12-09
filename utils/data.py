@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import torchvision.transforms as transforms
 import numpy as np
+from PIL import Image
+import torch
 
 # 获取当前目录的绝对路径
 cur_path = os.path.realpath(os.curdir)
@@ -68,10 +70,10 @@ class DataUtils:
         t = transforms.Compose(
             [
                 transforms.Resize([224, 224]),
-                transforms.ToTensor(),
             ]
         )
-        mask_tensor = t(mask)
+        mask = np.array(t(mask))
+        mask_tensor = torch.tensor(mask, dtype=torch.uint8)
         mask_tensor = mask_tensor.squeeze(0)
         return mask_tensor
 
@@ -79,7 +81,35 @@ class DataUtils:
     def seg_pred_to_mask(pred):
         pred = np.argmax(pred, axis=0)
         return pred
+    
+    def load_and_preprocess_single_image(image_dir):
+        image = Image.Open(image_dir)
+        return self.image_resize(image)
 
+    def create_visual_anno(anno):
+        """"""
+        assert np.max(anno) <= 7, "only 7 classes are supported, add new color in label2color_dict"
+        label2color_dict = {
+            0: [0, 0, 0],
+            1: [255, 248, 220],  # cornsilk
+            2: [100, 149, 237],  # cornflowerblue
+            3: [102, 205, 170],  # mediumAquamarine
+            4: [205, 133, 63],  # peru
+            5: [160, 32, 240],  # purple
+            6: [255, 64, 64],  # brown1
+            7: [139, 69, 19],  # Chocolate4
+        }
+        # visualize
+        visual_anno = np.zeros((anno.shape[0], anno.shape[1], 3), dtype=np.uint8)
+        for i in range(visual_anno.shape[0]):  # i for h
+            for j in range(visual_anno.shape[1]):
+                color = label2color_dict[anno[i, j]]
+                visual_anno[i, j, 0] = color[0]
+                visual_anno[i, j, 1] = color[1]
+                visual_anno[i, j, 2] = color[2]
+        anno_mask = Image.fromarray(visual_anno)
+        return anno_mask
+        
 
 # 读取yaml配置文件
 def read_yaml_config(yaml_file):
