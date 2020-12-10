@@ -2,7 +2,7 @@ from utils.dataset import ImageDataset, ImageSegDataset
 import utils.data as data
 from config import config
 from torch.utils.data import DataLoader, SubsetRandomSampler
-from models import resnet, lossnet, unet
+from models import resnet, unet
 import sampler
 from torch import nn, optim
 from train import train_epoch
@@ -13,6 +13,7 @@ import random
 from torch.utils.tensorboard import SummaryWriter
 import os
 from evaluation import eval_net
+import numpy as np
 
 
 # 配置训练设备
@@ -29,19 +30,22 @@ def deep_active_learn():
     data_pool = ImageDataset(train_data_paths, train_labels, data.image_resize)
 
     # 构造所有data的索引
-    indices = list(range(len(data_pool)))
-    random.shuffle(indices)
-
+    unlabeled_indices = list(set(np.arange(len(data_pool))))
     # 初始化labeled数据
     k = config["active_learn"]["initial_labeled_nums"]
-    labeled_indices = indices[:k]
-    unlabeled_indices = indices[k:]
+    labeled_indices = random.sample(unlabeled_indices, k)
+    # 将请求到标签的数据从无标签数据池中移除
+    unlabeled_indices = np.setdiff1d(unlabeled_indices, labeled_indices)
 
     # 通过labeled_indices构造Train DataLoader
     train_sampler = SubsetRandomSampler(labeled_indices)
+    unlabeled_sampler = SubsetRandomSampler(unlabeled_indices)
     train_loader = DataLoader(data_pool, batch_size=config["deep_learn"]["batch_size"], sampler=train_sampler,
                               pin_memory=False) # 设备性能好时设置为True，加快数据转到GPU的速度
-
+    
+    unlabeled_loader = DataLoader(data_pool, batch_size=config["deep_learn"]["batch_size"], 
+                                  sampler=unlabeled_sampler, pin_memory=False)
+    
     # 定义任务模型
     task_model = resnet.ResNet18(num_classes=3)
     task_model.to(device)
@@ -54,8 +58,8 @@ def deep_active_learn():
     task_model.load_state_dict(task_model_dict)
 
     # 损失预测模块
-    loss_module = lossnet.LossNet()
-    loss_module.to(device)
+    # loss_module = lossnet.LossNet()
+    # loss_module.to(device)
 
     # 定义损失函数
     criterion = nn.CrossEntropyLoss()
@@ -64,16 +68,21 @@ def deep_active_learn():
     task_model_optimizer = optim.SGD(task_model.parameters(), lr=config["deep_learn"]["task_model"]["lr"],
                                      momentum=config["deep_learn"]["task_model"]["momentum"],
                                      weight_decay=config["deep_learn"]["task_model"]["weight_decay"])
-    loss_module_optimizer = optim.SGD(task_model.parameters(), lr=config["deep_learn"]["loss_module"]["lr"],
-                                     momentum=config["deep_learn"]["loss_module"]["momentum"],
-                                     weight_decay=config["deep_learn"]["loss_module"]["weight_decay"])
+    # loss_module_optimizer = optim.SGD(task_model.parameters(), lr=config["deep_learn"]["loss_module"]["lr"],
+    #                                  momentum=config["deep_learn"]["loss_module"]["momentum"],
+    #                                  weight_decay=config["deep_learn"]["loss_module"]["weight_decay"])
 
-    # for cycle in range(config["active_learn"]["cycles"]):
-        
+    for cycle in range(config["active_learn"]["cycles"]):
+        # 采样阶段
+        active_sampler = sampler.RandomSampler(50)
+        query_indices = active_sampler.sample(unlabeled_loader))
+        labeled_indices.extend(query)
+        unlabeled_indices = np.setdiff1d(unlabeled_indices, query_indices)
+
+        # 训练阶段    
     # active_sampler = sampler.HybridSampler()
 
 
-# TODO: 测试
 # 分割深度学习调这个接口
 def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
     # TensorBoard日志记录
@@ -96,7 +105,8 @@ def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
     test_loader = DataLoader(data_pool, batch_size=batch_size, pin_memory=False, sampler=test_sampler)
 
     # 声明模型
-    net = unet.UNet(n_channels=3, n_classes=3)
+    net = unet.UNet(n_channels=3, n_classes=4)
+    net = net.to(device)
     model_name = "UNet"
     writer.add_graph(net, torch.zeros(1, 3, 224, 224))
 
@@ -109,7 +119,6 @@ def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
     if not os.path.exists(config["checkpoints_save_dir"]):
         os.mkdir(config["checkpoints_save_dir"])
     # 训练
-    # TODO: tqdm过程中展示acc和loss
     for epoch in range(epochs):
         epoch_loss = train_epoch(net, train_loader, device, criterion, optimizer, epoch)
         dice = eval_net(net, test_loader, device)
@@ -122,6 +131,26 @@ def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
 
     writer.close()
 
+
+def demo(batch_size=24, test_size=0.2):
+    model_dir = os.path.join(config["checkpoints_save_dir"], "seg_model_UNet_lr_0.001_bs_24_epochs_50.pth")
+    net = unet.UNet(n_channels=3, n_classes=3)
+
+    data_paths, mask_paths = data.load_seg_data_paths(config["data_root"]["segmentation"])
+    data_pool = ImageSegDataset(data_paths, mask_paths, data.image_resize, data.process_masks)
+
+    indices = list(range(len(data_pool)))
+    random.shuffle(indices)
+    test_indices = indices[int((1-test_size)*len(indices)):]
+    test_sampler = SubsetRandomSampler(test_indices)
+
+    test_loader = DataLoader(data_pool, batch_size=batch_size, pin_memory=False, sampler=test_sampler)
+
+    net.load_state_dict(torch.load(model_dir))
+    metric_score = eval_net(net, test_loader, device)
+    print(metric_score)
+
 if __name__ == "__main__":
     # deep_active_learn()
-    segmentation_pipeline()
+    # segmentation_pipeline()
+    demo()
