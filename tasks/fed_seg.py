@@ -23,7 +23,12 @@ class FedSegPipeline(DeepTask):
             # the param 'dataset' is useless in clients' tasks
             # self.clients[i] = DeepTask(task_name+"client"+str(i), deepcopy(model), dataset, optimizer, criterion, epochs, batch_size, 
             #                            write_tensorboard=False)
-            self.clients[i] = DeepTask("", deepcopy(model), dataset, deepcopy(optimizer), deepcopy(criterion), 
+            local_model = deepcopy(model)
+            optim_state = self.optimizer.state_dict()["param_groups"][0]
+            optimizer = optim.RMSprop(local_model.parameters(), lr=optim_state["lr"], 
+                                      weight_decay=optim_state["weight_decay"], 
+                                      momentum=optim_state["momentum"])
+            self.clients[i] = DeepTask("", local_model, dataset, optimizer, deepcopy(criterion), 
                                        epochs, batch_size, write_tensorboard=False)
 
     def get_train_test_indices(self, test_size=0.2, seed=2020):
@@ -82,7 +87,7 @@ def pipeline(config):
     # Model
     model = unet.UNet(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
     # Dataset
-    data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"], sep="\\")
+    data_paths, mask_paths = DataUtils.load_seg_data_paths(config["data"]["data_root"], sep="/")
     print("Data path numbers: ", len(data_paths))
     dataset = ImageSegDataset(data_paths, mask_paths, DataUtils.image_resize, DataUtils.process_masks)
     print("Dataset size: ", len(dataset))
@@ -103,6 +108,14 @@ def pipeline(config):
     task.run()
     task.end()
 
+# def pipeline(config):
+#     model = unet.UNet(n_channels=config["model"]["n_channels"], n_classes=config["model"]["n_classes"])
+#     optimizer = optim.RMSprop(model.parameters(), lr=config["optimizer"]["lr"], 
+#                               weight_decay=config["optimizer"]["weight_decay"], 
+#                               momentum=config["optimizer"]["momentum"])
+#     print(optimizer.state_dict())
+
 
 if __name__ == "__main__":
     pipeline()
+    
