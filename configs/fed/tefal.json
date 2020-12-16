@@ -1,0 +1,14 @@
+{
+    "federate": {
+        "round": 50,
+        "client_nums": 6,
+        "client_budget": 4
+    },
+    "discriminator": {
+        "optimizer": {
+            "name": "adam",
+            "lr": 5e-4
+        }
+        
+    }
+}

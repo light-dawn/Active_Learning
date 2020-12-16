@@ -1,0 +1,6 @@
+{
+    "federate": {
+        "round": 10,
+        "client_nums": 5
+    }
+}

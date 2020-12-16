@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image
-from utils.data import DataUtils
+from utils.data import process_masks
 
 
 def pixel_accuracy(eval_segm, gt_segm):
@@ -200,6 +200,6 @@ if __name__ == "__main__":
     #     print(extract_classes(demo_mask))
 
     demo_mask = Image.open("raw_data/ct_lesion_seg/mask/0/23.png")
-    demo_mask = DataUtils.process_masks(demo_mask)
+    demo_mask = process_masks(demo_mask)
     print(demo_mask.size())
     print(extract_classes(demo_mask.numpy()))

@@ -1,0 +1,17 @@
+{
+    "lossnet": {
+        "feature_sizes": [112, 56, 28, 14],
+        "num_channels": [128, 256, 512, 512],
+        "optimizer": {
+            "name": "sgd",
+            "lr": 1e-4,
+            "weight_decay": 5e-4,
+            "momentum": 0.9
+        }
+    },
+    "active": {
+        "init_budget": 20,
+        "budget": 6,
+        "cycles": 1
+    }
+}
