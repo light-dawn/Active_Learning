@@ -1,0 +1,24 @@
+{   
+    "task": {
+        "name": "Classification",
+        "type": "cla"
+    },
+    "model": {
+        "name": "resnet18",
+        "n_channels": 3,
+        "n_classes": 3
+    },
+    "train": {
+        "epochs": 50,
+        "batch_size": 2,
+        "criterion": "cross_entropy",
+        "write_tensorboard": true,
+        "seed": 2020
+    },
+    "optimizer": {
+        "name": "rms_prop",
+        "lr": 1e-4,
+        "weight_decay": 5e-4,
+        "momentum": 0.9
+    }
+}

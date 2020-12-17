@@ -1,15 +1,17 @@
 from torch.utils.data import Dataset
 from PIL import Image
 
+from utils.data import image_resize, process_masks
+
 
 class DatasetUtils:
     @staticmethod
-    def create_image_cla_dataset(x_info, y_info, x_transform, y_transform):
-        return ImageDataset(x_info, y_info, x_transform, y_transform)
+    def cla(x_info, y_info):
+        return ImageDataset(x_info, y_info, image_resize)
 
     @staticmethod
-    def create_image_seg_dataset(x_info, y_info, x_transform, y_transform):
-        return ImageSegDataset(x_info, y_info, x_transform, y_transform)
+    def seg(x_info, y_info):
+        return ImageSegDataset(x_info, y_info, image_resize, process_masks)
 
 
 # 图像数据集，根据文件路径和标签构造数据集
@@ -73,6 +75,9 @@ class ImageSegDataset(Dataset):
 
 
 # TODO: VolumeDataset
-dataset_utils = DatasetUtils()
+
+# TODO: TwoPhaseDataset
+
+datasetUtils = DatasetUtils()
 
     

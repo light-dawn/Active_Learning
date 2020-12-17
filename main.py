@@ -1,156 +1,54 @@
-from utils.dataset import ImageDataset, ImageSegDataset
-import utils.data as data
-from config import config
-from torch.utils.data import DataLoader, SubsetRandomSampler
-from models import resnet, unet
-import sampler
-from torch import nn, optim
-from train import train_epoch
-import logging
-from tqdm import tqdm
-import torch
-import random
-from torch.utils.tensorboard import SummaryWriter
+import sys
+import datetime
 import os
-from evaluation import eval_net
-import numpy as np
+
+from utils.config import load_config, load_configs, global_conf
+from utils.log import Logger
+from utils.args import parse_args
+from utils.dataset import datasetUtils
+from utils.task import taskUtils
+from utils.data import load_seg_data_paths, load_labeled_data_paths
 
 
-# 配置训练设备
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+args = parse_args()
+log_name = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%d-%H-%M-%S") + ".log"
+sys.stdout = Logger(filename=os.path.join("logs", log_name), write_log=global_conf["write_log"])
 
 
-# TODO: 开发中
-def deep_active_learn():
-    # 获取文件和标签
-    train_data_paths, train_labels = data.load_labeled_data_paths(config["data_root"]["train"])
-    test_data_paths, test_labels = data.load_labeled_data_paths(config["data_root"]["test"])
-
-    # 构建数据池，通过将labeled_indices传入sampler来模拟数据被oracle打标签
-    data_pool = ImageDataset(train_data_paths, train_labels, data.image_resize)
-
-    # 构造所有data的索引
-    unlabeled_indices = list(set(np.arange(len(data_pool))))
-    # 初始化labeled数据
-    k = config["active_learn"]["initial_labeled_nums"]
-    labeled_indices = random.sample(unlabeled_indices, k)
-    # 将请求到标签的数据从无标签数据池中移除
-    unlabeled_indices = np.setdiff1d(unlabeled_indices, labeled_indices)
-
-    # 通过labeled_indices构造Train DataLoader
-    train_sampler = SubsetRandomSampler(labeled_indices)
-    unlabeled_sampler = SubsetRandomSampler(unlabeled_indices)
-    train_loader = DataLoader(data_pool, batch_size=config["deep_learn"]["batch_size"], sampler=train_sampler,
-                              pin_memory=False) # 设备性能好时设置为True，加快数据转到GPU的速度
-    
-    unlabeled_loader = DataLoader(data_pool, batch_size=config["deep_learn"]["batch_size"], 
-                                  sampler=unlabeled_sampler, pin_memory=False)
-    
-    # 定义任务模型
-    task_model = resnet.ResNet18(num_classes=3)
-    task_model.to(device)
-
-    # 预训练
-    task_model_dict = task_model.state_dict()
-    pretrained_dict = torch.load(config["preprocess"]["pretrained_model_path"])
-    parameter_dict = {k: v for k, v in pretrained_dict.items() if k in task_model_dict}
-    task_model_dict.update(parameter_dict)
-    task_model.load_state_dict(task_model_dict)
-
-    # 损失预测模块
-    # loss_module = lossnet.LossNet()
-    # loss_module.to(device)
-
-    # 定义损失函数
-    criterion = nn.CrossEntropyLoss()
-
-    # 定义优化器
-    task_model_optimizer = optim.SGD(task_model.parameters(), lr=config["deep_learn"]["task_model"]["lr"],
-                                     momentum=config["deep_learn"]["task_model"]["momentum"],
-                                     weight_decay=config["deep_learn"]["task_model"]["weight_decay"])
-    # loss_module_optimizer = optim.SGD(task_model.parameters(), lr=config["deep_learn"]["loss_module"]["lr"],
-    #                                  momentum=config["deep_learn"]["loss_module"]["momentum"],
-    #                                  weight_decay=config["deep_learn"]["loss_module"]["weight_decay"])
-
-    for cycle in range(config["active_learn"]["cycles"]):
-        # 采样阶段
-        active_sampler = sampler.RandomSampler(50)
-        query_indices = active_sampler.sample(unlabeled_loader))
-        labeled_indices.extend(query)
-        unlabeled_indices = np.setdiff1d(unlabeled_indices, query_indices)
-
-        # 训练阶段    
-    # active_sampler = sampler.HybridSampler()
+def run_task(task):
+    task.start()
+    task.run()
+    task.end()
 
 
-# 分割深度学习调这个接口
-def segmentation_pipeline(lr=1e-3, batch_size=24, epochs=50, test_size=0.2):
-    # TensorBoard日志记录
-    writer = SummaryWriter(comment=f"seg_lr_{lr}_bs_{batch_size}_epochs_{epochs}")
-
-    # 获取训练数据和ground-truth掩膜
-    data_paths, mask_paths = data.load_seg_data_paths(config["data_root"]["segmentation"])
-    data_pool = ImageSegDataset(data_paths, mask_paths, data.image_resize, data.process_masks)
-
-    # 用indices来划分训练和测试数据
-    indices = list(range(len(data_pool)))
-    random.shuffle(indices)
-    train_indices, test_indices = indices[:int((1-test_size)*len(indices))], indices[int((1-test_size)*len(indices)):]
-    print("训练数据量: ", len(train_indices))
-    print("测试数据量: ", len(test_indices))
-    train_sampler = SubsetRandomSampler(train_indices)
-    test_sampler = SubsetRandomSampler(test_indices)
-
-    train_loader = DataLoader(data_pool, batch_size=batch_size, pin_memory=False, sampler=train_sampler)
-    test_loader = DataLoader(data_pool, batch_size=batch_size, pin_memory=False, sampler=test_sampler)
-
-    # 声明模型
-    net = unet.UNet(n_channels=3, n_classes=4)
-    net = net.to(device)
-    model_name = "UNet"
-    writer.add_graph(net, torch.zeros(1, 3, 224, 224))
-
-    optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
-    if net.n_classes > 1:
-        criterion = nn.CrossEntropyLoss()
+def main():
+    # Check if the args are valid.
+    assert args.task_type == "seg" or args.task_type == "cla", "Only support segmentation and classification currently."
+    assert args.mode in ("deep", "active", "fed", "lefal", "tefal"), "Mode not supported."
+    print("Trail Mode: ", args.mode)
+    print("Task Type: ", args.task_type)
+    print("Active Strategy: ", args.strategy)
+    print("Data Root: ", global_conf["data_root"])
+    conf_dir = ["configs/deep/seg.json"] if args.task_type == "seg" else ["configs/deep/cla.json"]
+    data_load_func = load_seg_data_paths if args.task_type == "seg" else load_labeled_data_paths
+    # Load conf
+    if args.mode == "active":
+        conf_dir.append(os.path.join("configs/active", args.strategy + ".json"))
+    elif args.mode == "fed":
+        conf_dir.append("configs/fed/fed.json")
+    elif args.mode == "lefal":
+        conf_dir.extend([os.path.join("configs/active", args.strategy + ".json"), "configs/fed/fed.json"])
     else:
-        criterion = nn.BCEWithLogitsLoss()
+        conf_dir.append("configs/fed/tefal.json")
+    conf = load_configs(conf_dir)
+    # Create a dataset according to the task type.
+    sep = "\\" if global_conf["os"] == "windows" else "/"
+    x_info, y_info = data_load_func(global_conf["data_root"], sep=sep)
+    dataset = getattr(datasetUtils, args.task_type)(x_info, y_info)
+    # Create a task
+    task = getattr(taskUtils, args.mode)(dataset, conf, args.strategy)
+    run_task(task)
 
-    if not os.path.exists(config["checkpoints_save_dir"]):
-        os.mkdir(config["checkpoints_save_dir"])
-    # 训练
-    for epoch in range(epochs):
-        epoch_loss = train_epoch(net, train_loader, device, criterion, optimizer, epoch)
-        dice = eval_net(net, test_loader, device)
-        writer.add_scalar("Loss/train", epoch_loss, epoch+1)
-        writer.add_scalar("Dice/eval", dice, epoch+1)
-        logging.info(f"Epoch: {epoch+1}, Training loss: {epoch_loss}")
-        torch.save(net.state_dict(), os.path.join(config["checkpoints_save_dir"], 
-                   f"seg_model_{model_name}_lr_{lr}_bs_{batch_size}_epoch_{epoch+1}.pth"))
-        # 模型的weight可以通过net.state_dict()来拿
-
-    writer.close()
-
-
-def demo(batch_size=24, test_size=0.2):
-    model_dir = os.path.join(config["checkpoints_save_dir"], "seg_model_UNet_lr_0.001_bs_24_epochs_50.pth")
-    net = unet.UNet(n_channels=3, n_classes=3)
-
-    data_paths, mask_paths = data.load_seg_data_paths(config["data_root"]["segmentation"])
-    data_pool = ImageSegDataset(data_paths, mask_paths, data.image_resize, data.process_masks)
-
-    indices = list(range(len(data_pool)))
-    random.shuffle(indices)
-    test_indices = indices[int((1-test_size)*len(indices)):]
-    test_sampler = SubsetRandomSampler(test_indices)
-
-    test_loader = DataLoader(data_pool, batch_size=batch_size, pin_memory=False, sampler=test_sampler)
-
-    net.load_state_dict(torch.load(model_dir))
-    metric_score = eval_net(net, test_loader, device)
-    print(metric_score)
 
 if __name__ == "__main__":
-    # deep_active_learn()
-    # segmentation_pipeline()
-    demo()
+    main()
