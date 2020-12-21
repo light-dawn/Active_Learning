@@ -1,6 +1,6 @@
 {   
     "task": {
-        "name": "Deep Segmentation",
+        "name": "Fed_Seg",
         "type": "seg"
     },
     "model": {
@@ -9,10 +9,11 @@
         "n_classes": 4
     },
     "train": {
-        "epochs": 5,
+        "epochs": 50,
         "batch_size": 2,
         "criterion": "cross_entropy",
         "write_tensorboard": true,
+        "save_best_model": true,
         "seed": 2020
     },
     "optimizer": {

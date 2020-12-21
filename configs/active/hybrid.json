@@ -4,7 +4,7 @@
         "num_channels": [128, 256, 512, 512],
         "optimizer": {
             "name": "sgd",
-            "lr": 1e-4,
+            "lr": 1e-3,
             "weight_decay": 5e-4,
             "momentum": 0.9
         }

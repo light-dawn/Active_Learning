@@ -1,11 +1,14 @@
-from tasks.base_tasks import DeepTask
-from models import unet
-import json
-from utils.dataset import ImageSegDataset
-from torch.utils.data import DataLoader, SubsetRandomSampler
-from torch import nn, optim
 import os
+import json
+import torch
 import random
+from torch import nn, optim
+from torch.utils.data import DataLoader, SubsetRandomSampler
+
+from models import unet
+from utils.metrics import metricUtils
+from utils.dataset import ImageSegDataset
+from tasks.base_tasks import DeepTask
 
 
 class DeepPipeline(DeepTask):
@@ -29,16 +32,26 @@ class DeepPipeline(DeepTask):
             epoch_loss = self.train_epoch(train_loader)
             if self.writer:
                 self.writer.add_scalar("Loss/train", epoch_loss, epoch + 1)
-            print(f"Epoch: {self.cur_epoch}")
+            print(f"Epoch: {epoch + 1}")
             print(f"Loss: {epoch_loss}")
-            metrics = self.eval_seg(test_loader) if self.conf["task"]["type"] == "seg" else self.eval_cla(test_loader)
+            metrics_func_dict = getattr(metricUtils, self.conf["task"]["type"])()
+            metrics = self.eval_seg(test_loader, metrics_func_dict) if self.conf["task"]["type"] == "seg" else self.eval_cla(test_loader)
             for metric_name, metric_value in metrics.items():
                 print(f"{metric_name}: {metric_value}")
+                if metric_name not in self.train_status:
+                    self.train_status[metric_name] = [metric_value]
+                else:
+                    self.train_status[metric_name].append(metric_value)
                 if self.writer:
                     self.writer.add_scalar(metric_name+"/eval", metric_value, epoch + 1)
+            if self.conf["train"]["save_best_model"]:   
+                best_count = 0
+                for metric_name, value_list in self.train_status.items():
+                    if metrics[metric_name] == max(value_list):
+                        best_count += 1
+                if best_count == len(metrics):
+                    print("Save the best model.")
+                    torch.save(self.model.state_dict(), os.path.join("checkpoints", self.conf["task"]["name"]+".pth"))
+                    
             # if self.save_weight:
             #     self.save_model_state_dict(os.path.join("checkpoints", self.task_name+"_Epoch_"+str(epoch + 1)+".pth"))
-
-
-if __name__ == "__main__":
-    pipeline()

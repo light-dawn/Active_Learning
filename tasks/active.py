@@ -11,6 +11,7 @@ from loss import loss_prediction_loss
 from sampler import *
 from utils.dataset import ImageSegDataset
 from utils.utils import optimUtils
+from utils.metrics import metricUtils
 from tasks.base_tasks import DeepActiveTask
 
 

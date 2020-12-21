@@ -3,7 +3,7 @@ from copy import deepcopy
 import torch
 
 # The average aggregation of the federated global model
-def average_weights(local_weights, diff_privacy=0.001):
+def average_weights(local_weights, diff_privacy=0.0):
     """
     Federated averaging
     :param w: list of client model parameters

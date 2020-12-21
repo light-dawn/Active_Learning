@@ -1,13 +1,150 @@
+import torch
 import numpy as np
 from PIL import Image
-from utils.data import process_masks
+from utils.data import process_masks, seg_pred_to_mask
+from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score
+from torch.autograd import Function
+
+
+class MetricUtils:
+    @staticmethod
+    def seg():
+        return {"mean_iou": mean_IU}
+    
+    @staticmethod
+    def cla():
+        return {"acc": accuracy_score, "precision": precision_score, "recall": recall_score, "f1": f1_score}
+
+    @staticmethod
+    def two_phases():
+        return {"acc": accuracy_score, "precision": precision_score, "recall": recall_score, "f1": f1_score}
+
+
+class Metric:
+    '''Metric computes accuracy/precision/recall/confusion_matrix with batch updates.'''
+
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
+        self.y = []
+        self.t = []
+
+    def update(self, y, t):
+        '''Update with batch outputs and labels.
+        Args:
+          y: (tensor) model outputs sized [N,].
+          t: (tensor) labels targets sized [N,].
+        '''
+        self.y.append(y)
+        self.t.append(t)
+
+    def _process(self, y, t):
+        '''Compute TP, FP, FN, TN.
+        Args:
+          y: (tensor) model outputs sized [N,].
+          t: (tensor) labels targets sized [N,].
+        Returns:
+          (tensor): TP, FP, FN, TN, sized [num_classes,].
+        '''
+        tp = torch.empty(self.num_classes)
+        fp = torch.empty(self.num_classes)
+        fn = torch.empty(self.num_classes)
+        tn = torch.empty(self.num_classes)
+        for i in range(self.num_classes):
+            tp[i] = ((y == i) & (t == i)).sum().item()
+            fp[i] = ((y == i) & (t != i)).sum().item()
+            fn[i] = ((y != i) & (t == i)).sum().item()
+            tn[i] = ((y != i) & (t != i)).sum().item()
+        return tp, fp, fn, tn
+
+    def accuracy(self, reduction='mean'):
+        '''Accuracy = (TP+TN) / (P+N).
+        Args:
+          reduction: (str) mean or none.
+        Returns:
+          (tensor) accuracy.
+        '''
+        if not self.y or not self.t:
+            return
+        assert(reduction in ['none', 'mean'])
+        y = torch.cat(self.y, 0)
+        t = torch.cat(self.t, 0)
+        tp, fp, fn, tn = self._process(y, t)
+        if reduction == 'none':
+            acc = tp / (tp + fn)
+        else:
+            acc = tp.sum() / (tp + fn).sum()
+        return acc
+
+    def precision(self, reduction='mean'):
+        '''Precision = TP / (TP+FP).
+        Args:
+          reduction: (str) mean or none.
+        Returns:
+          (tensor) precision.
+        '''
+        if not self.y or not self.t:
+            return
+        assert(reduction in ['none', 'mean'])
+        y = torch.cat(self.y, 0)
+        t = torch.cat(self.t, 0)
+        tp, fp, fn, tn = self._process(y, t)
+        prec = tp / (tp + fp)
+        prec[torch.isnan(prec)] = 0
+        if reduction == 'mean':
+            prec = prec.mean()
+        return prec
+
+    def recall(self, reduction='mean'):
+        '''Recall = TP / P.
+        Args:
+          reduction: (str) mean or none.
+        Returns:
+          (tensor) recall.
+        '''
+        if not self.y or not self.t:
+            return
+        assert(reduction in ['none', 'mean'])
+        y = torch.cat(self.y, 0)
+        t = torch.cat(self.t, 0)
+        tp, fp, fn, tn = self._process(y, t)
+        recall = tp / (tp + fn)
+        recall[torch.isnan(recall)] = 0
+        if reduction == 'mean':
+            recall = recall.mean()
+        return recall
+
+    def confusion_matrix(self):
+        y = torch.cat(self.y, 0)
+        t = torch.cat(self.t, 0)
+        matrix = torch.zeros(self.num_classes, self.num_classes)
+        for i in range(self.num_classes):
+            for j in range(self.num_classes):
+                matrix[j][i] = ((y == i) & (t == j)).sum().item()
+        return matrix
+
+        
+def make_one_hot(input, num_classes):
+    """Convert class index tensor to one hot encoding tensor.
+    Args:
+         input: A tensor of shape [N, 1, *]
+         num_classes: An int of number of class
+    Returns:
+        A tensor of shape [N, num_classes, *]
+    """
+    shape = np.array(input.shape)
+    shape[1] = num_classes
+    shape = tuple(shape)
+    result = torch.zeros(shape)
+    result = result.scatter_(1, input.cpu(), 1)
+
+    return result
 
 
 def pixel_accuracy(eval_segm, gt_segm):
     '''
     sum_i(n_ii) / sum_i(t_i)
     '''
-
+    eval_segm, gt_segm = np.array(eval_segm), np.array(gt_segm)
     check_size(eval_segm, gt_segm)
 
     cl, n_cl = extract_classes(gt_segm)
@@ -36,7 +173,7 @@ def mean_accuracy(eval_segm, gt_segm):
     '''
     (1/n_cl) sum_i(n_ii/t_i)
     '''
-
+    eval_segm, gt_segm = np.array(eval_segm), np.array(gt_segm)
     check_size(eval_segm, gt_segm)
 
     cl, n_cl = extract_classes(gt_segm)
@@ -62,7 +199,7 @@ def mean_IU(eval_segm, gt_segm):
     '''
     (1/n_cl) * sum_i(n_ii / (t_i + sum_j(n_ji) - n_ii))
     '''
-
+    eval_segm, gt_segm = np.array(eval_segm), np.array(gt_segm)
     check_size(eval_segm, gt_segm)
 
     cl, n_cl   = union_classes(eval_segm, gt_segm)
@@ -92,7 +229,7 @@ def frequency_weighted_IU(eval_segm, gt_segm):
     '''
     sum_k(t_k)^(-1) * sum_i((t_i*n_ii)/(t_i + sum_j(n_ji) - n_ii))
     '''
-
+    eval_segm, gt_segm = np.array(eval_segm), np.array(gt_segm)
     check_size(eval_segm, gt_segm)
 
     cl, n_cl = union_classes(eval_segm, gt_segm)
@@ -180,6 +317,50 @@ def check_size(eval_segm, gt_segm):
         raise EvalSegErr("DiffDim: Different dimensions of matrices!")
 
 
+class DiceCoeff(Function):
+    """Dice coeff for individual examples"""
+
+    def forward(self, input, target):
+        with torch.no_grad():
+            self.save_for_backward(input, target)
+            eps = 0.0001
+            self.inter = torch.dot(input.view(-1), target.view(-1))
+            self.union = torch.sum(input) + torch.sum(target) + eps
+            t = (2 * self.inter.float() + eps) / self.union.float()
+        return t
+
+    # This function has only a single output, so it gets only one gradient
+    def backward(self, grad_output):
+
+        input, target = self.saved_variables
+        grad_input = grad_target = None
+
+        if self.needs_input_grad[0]:
+            grad_input = grad_output * 2 * (target * self.union - self.inter) \
+                         / (self.union * self.union)
+        if self.needs_input_grad[1]:
+            grad_target = None
+
+        return grad_input, grad_target
+
+
+def dice_coeff(pred, target):
+    return DiceCoeff().forward(pred, target).item()
+
+
+def dice_coeff_for_batches(preds, targets):
+    """Dice coeff for batches"""
+    if input.is_cuda:
+        s = torch.FloatTensor(1).cuda().zero_()
+    else:
+        s = torch.FloatTensor(1).zero_()
+
+    for i, c in enumerate(zip(input, target)):
+        s = s + DiceCoeff().forward(c[0], c[1])
+
+    return s / (i + 1)
+
+
 '''
 Exceptions
 '''
@@ -189,6 +370,9 @@ class EvalSegErr(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+
+metricUtils = MetricUtils()
 
 
 if __name__ == "__main__":

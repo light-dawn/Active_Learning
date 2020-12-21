@@ -7,7 +7,7 @@ from utils.log import Logger
 from utils.args import parse_args
 from utils.dataset import datasetUtils
 from utils.task import taskUtils
-from utils.data import load_seg_data_paths, load_labeled_data_paths
+from utils.data import load_seg_data_paths, load_cla_data_paths_and_labels_specific
 
 
 args = parse_args()
@@ -30,7 +30,7 @@ def main():
     print("Active Strategy: ", args.strategy)
     print("Data Root: ", global_conf["data_root"])
     conf_dir = ["configs/deep/seg.json"] if args.task_type == "seg" else ["configs/deep/cla.json"]
-    data_load_func = load_seg_data_paths if args.task_type == "seg" else load_labeled_data_paths
+    data_load_func = load_seg_data_paths if args.task_type == "seg" else load_cla_data_paths_and_labels_specific
     # Load conf
     if args.mode == "active":
         conf_dir.append(os.path.join("configs/active", args.strategy + ".json"))
