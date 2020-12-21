@@ -9,7 +9,7 @@
         "n_classes": 4
     },
     "train": {
-        "epochs": 50,
+        "epochs": 5,
         "batch_size": 2,
         "criterion": "cross_entropy",
         "write_tensorboard": true,

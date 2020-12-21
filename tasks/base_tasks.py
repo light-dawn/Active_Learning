@@ -89,6 +89,7 @@ class DeepTask(BaseTask):
             assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
 
             prediction = self.model(data)
+            print(prediction.)
             loss = self.criterion(prediction, targets)
             epoch_loss += loss.item()
 
@@ -146,6 +147,11 @@ class DeepTask(BaseTask):
         with torch.no_grad():
             for data, targets, _ in process:
                 data = data.to(device=self.device, dtype=torch.float32)
+                if self.filter_model:
+                    filter_info = self.filter_model(data)
+                    print(data.shape)
+                    print(filter_info.shape)
+                    data = torch.cat([data, filter_info], 1
                 targets = targets.to(device=self.device, dtype=torch.long)
                 assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
                 if self.conf["model"]["name"].endswith("feat"):
