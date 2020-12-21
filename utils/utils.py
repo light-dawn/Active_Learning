@@ -1,5 +1,5 @@
 from torch import nn, optim
-from models import unet
+from models import unet, resnet
 from utils.dataset import *
 
 
@@ -11,6 +11,13 @@ class ModelUtils:
     @staticmethod
     def unet_feat(conf):
         return unet.UNet_FM(conf["n_channels"], conf["n_classes"])
+
+    @staticmethod
+    def resnet18(conf):
+        return resnet.ResNet18(n_channels=conf["n_channels"], num_classes=conf["n_classes"])
+
+    def resnet18_feat(conf):
+        return resnet.ResNet18_FM(n_channels=conf["n_channels"], num_classes=conf["n_classes"])
 
     
 class LossUtils:

@@ -8,6 +8,7 @@ import numpy as np
 import torchvision.transforms as transforms
 from pathlib import Path
 from PIL import Image
+from tqdm import tqdm
 
 
 # 获取当前目录的绝对路径
@@ -55,6 +56,58 @@ def load_seg_data_paths(root, image_suffix=".jpg", mask_suffix=".png", sep="/"):
     return data_paths, mask_paths
 
 
+# Scan target data types recursively
+def load_all_paths_recursive(data_root, data_types):
+    result = []
+    for data_type in data_types:
+        print("Data type: ", data_type)
+        result.extend([str(path).strip() for path in list(Path(data_root).rglob("*."+data_type))])
+    return sorted(result)
+
+
+def get_label_names(data_root):
+    label_names = sorted(item.name for item in Path(data_root).glob("*/") if item.is_dir())
+    return label_names
+
+
+def read_csv(csv):
+    with open(csv, "r") as f:
+        csv_content = [line.strip() for line in f.readlines()]
+    return csv_content
+
+
+# This is a function specific to loading CC-CCII classification data
+def load_cla_data_paths_and_labels_specific(data_root, nc_limit=30000, sep="/", desc_csv="raw_data/ct_cla/lesions_slices.csv"):
+    all_paths = load_all_paths_recursive(data_root, data_types=["jpg", "png"])
+    label_names = get_label_names(data_root)
+    print("Label names: ", label_names)
+    label_to_index = dict((name, index) for index, name in enumerate(label_names))
+    print("Label indices: ", label_to_index)
+
+    # Control the volume of NC images
+    nc_count = 0
+    paths_in_csv = read_csv(desc_csv)[1:]
+    print("csv path example: ", paths_in_csv[0])
+    data_paths, labels = [], []
+    for path in tqdm(all_paths):
+        # print("short_path: ", sep.join(path.split(sep)[-4:]))
+        if "/".join(path.split(sep)[-4:]) in paths_in_csv:
+            # print("path: ", path)
+            data_paths.append(path)
+            # print("label: ", path.split(sep)[-4])
+            labels.append(path.split(sep)[-4])
+        else:
+            if nc_count >= nc_limit:
+                continue
+            # print("path: ", path)
+            data_paths.append(path)
+            nc_count += 1
+            labels.append("NC")
+    
+    print("Labels: ", set(labels))
+    return data_paths, [label_to_index.get(label) for label in labels]
+
+
 def indices_train_test_split(indices, test_size=0.2, seed=2020):
     random.seed(seed)
     random.shuffle(indices)
@@ -87,7 +140,7 @@ def process_masks(mask):
 
 
 def seg_pred_to_mask(pred):
-    pred = np.argmax(pred, axis=0)
+    pred = torch.argmax(pred, axis=0)
     return pred
 
 
@@ -128,22 +181,16 @@ def read_yaml_config(yaml_file):
     return yaml.load(file_data, Loader=yaml.SafeLoader)
 
 
-def kaiming_init(m):
-    if isinstance(m, (nn.Linear, nn.Conv2d)):
-        init.kaiming_normal(m.weight)
-        if m.bias is not None:
-            m.bias.data.fill_(0)
-    elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d)):
-        m.weight.data.fill_(1)
-        if m.bias is not None:
-            m.bias.data.fill_(0)
+
 
 
 if __name__ == "__main__":
     # print(path)
     # print(os.path.join(path, "raw_data/CC-CCII/ct_lesion_seg"))
-    data_paths, mask_paths = load_seg_data_paths(os.path.join(path, "raw_data/CC-CCII/ct_lesion_seg"), mask_suffix=".png")
-    print(f"加载到的数据量: {len(data_paths)}")
-    print(f"加载到的掩膜量: {len(mask_paths)}")
-    print(data_paths[0])
-    print(mask_paths[0])
+    # data_paths, mask_paths = load_seg_data_paths(os.path.join(path, "raw_data/ct_lesion_seg"), mask_suffix=".png")
+    data_paths, labels = load_cla_data_paths_and_labels_specific("raw_data/ct_cla", desc_csv="raw_data/ct_cla/lesions_slices.csv", sep="\\")
+    print(len(data_paths))
+    print(len(labels))
+    print("CP num: ", len(list(filter(lambda x: x == 0, labels))))
+    print("NC num: ", len(list(filter(lambda x: x == 1, labels))))
+    print("NCP num: ", len(list(filter(lambda x: x == 2, labels))))

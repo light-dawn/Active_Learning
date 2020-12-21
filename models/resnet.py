@@ -106,7 +106,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=20, zero_init_residual=False,
+    def __init__(self, block, layers, n_channels=3, num_classes=20, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         super(ResNet, self).__init__()
@@ -116,6 +116,7 @@ class ResNet(nn.Module):
 
         self.inplanes = 64
         self.dilation = 1
+        self.n_channels = n_channels
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
             # the 2x2 stride with a dilated convolution instead
@@ -125,7 +126,7 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(n_channels, self.inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -189,6 +190,33 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        out = self.linear(x)
+        return out
+
+    def forward(self, x):
+        return self._forward_impl(x)
+
+
+class ResNet_FM(ResNet):
+    def __init__(self, block, layers, n_channels=3, num_classes=20, zero_init_residual=False,
+                 groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                 norm_layer=None):
+        super(ResNet_FM, self).__init(block, layers, n_channels, num_classes, zero_init_residual,
+                                      groups, width_per_group, replace_stride_with_dilation, norm_layer)
+            
+    def _forward_impl(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
         out1 = self.layer1(x)
         out2 = self.layer2(out1)
         out3 = self.layer3(out2)
@@ -199,17 +227,23 @@ class ResNet(nn.Module):
         out = self.linear(out)
         return out, [out1, out2, out3, out4]
 
-    def forward(self, x):
-        return self._forward_impl(x)
-
 
 def _resnet(block, layers, **kwargs):
     model = ResNet(block, layers, **kwargs)
     return model
 
 
+def _resnet_fm(block, layers, **kwargs):
+    model = ResNet_FM(block, layers, **kwargs)
+    return model
+
+
 def ResNet18(**kwargs):
     return _resnet(BasicBlock, [2, 2, 2, 2], **kwargs)
+
+
+def ResNet18_FM(**kwargs):
+    return _resnet_fm(BasicBlock, [2, 2, 2, 2], **kwargs)
 
 
 if __name__ == "__main__":

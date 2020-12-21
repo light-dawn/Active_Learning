@@ -49,6 +49,12 @@ class DeepTask(BaseTask):
         self.writer = SummaryWriter(os.path.join("runs", self.task_name+"-"+
                       datetime.datetime.strftime(datetime.datetime.now(), 
                       "%Y-%m-%d-%H-%M-%S"))) if conf["train"]["write_tensorboard"] else None
+        self.filter_model = getattr(modelUtils, conf["filter_model"]["name"])(conf["filter_model"]) \
+                            if conf["task"]["type"] == "two_phases" else None
+        if self.filter_model:
+            self.filter_model.to(self.device)
+        self.train_status = {}
+        self.metric_tool = Metric(conf["model"]["n_classes"]) if conf["task"]["type"] == "two_phases" or conf["task"]["type"] == "cla" else None
     
     def start(self):
         seed = self.conf["train"]["seed"]
@@ -60,10 +66,14 @@ class DeepTask(BaseTask):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         print("Model: ", self.conf["model"]["name"])
+        if self.filter_model:
+            print("Filter Model: ", self.conf["filter_model"]["name"])
         print("Epochs: ", self.epochs)
 
     def train_epoch(self, train_loader):
         self.model.train()
+        if self.filter_model:
+            self.filter_model.eval()
         epoch_loss = 0
         print("Length of the TrainLoader: ", len(train_loader))
         process = tqdm(train_loader, leave=True)
@@ -71,14 +81,17 @@ class DeepTask(BaseTask):
         for data, targets, _ in process:
             data = data.to(device=self.device, dtype=torch.float32)
             targets = targets.to(device=self.device, dtype=torch.long)
+            if self.filter_model:
+                filter_info = self.filter_model(data)
+                print(data.shape)
+                print(filter_info.shape)
+                data = torch.cat([data, filter_info], 1)
             assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
 
-            # 预测并计算loss
             prediction = self.model(data)
             loss = self.criterion(prediction, targets)
             epoch_loss += loss.item()
 
-            # 消除上一次梯度，然后反向传播并更新权重
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -94,9 +107,9 @@ class DeepTask(BaseTask):
             train_loss += epoch_loss
         return train_loss
             
-    def eval_seg(self, test_loader):
+    def eval_seg(self, test_loader, metrics_func_dict):
         total = 0
-        pa, mpa, miou, fwiou = 0.0, 0.0, 0.0, 0.0
+        metrics_dict = {}
         self.model.eval()
         process = tqdm(test_loader, leave=True)
         with torch.no_grad():
@@ -109,23 +122,40 @@ class DeepTask(BaseTask):
                 else:
                     prediction = self.model(data)
                 for pred, target in zip(prediction, targets):
-                    target = target.cpu().numpy()
-                    pred = pred.cpu().numpy()
-                    pred = seg_pred_to_mask(pred)
                     total += 1
-                    pa += pixel_accuracy(pred, target)
-                    mpa += mean_accuracy(pred, target)
-                    miou += mean_IU(pred, target)
-                    fwiou += frequency_weighted_IU(pred, target)
-            print({"pixel_acc": pa, "mean_pixel_acc": mpa, "mean_iou": miou, "frequency_weighted_iou": fwiou})
-        if total:
-            pa, mpa, miou, fwiou = pa / total, mpa / total, miou / total, fwiou / total
+                    target = target.cpu()
+                    pred = pred.cpu()
+                    pred = seg_pred_to_mask(pred)
+                    for metric, func in metrics_func_dict.items():
+                        if metric not in metrics_dict:
+                            metrics_dict[metric] = func(pred, target)
+                        else:
+                            metrics_dict[metric] += func(pred, target)
+        if len(metrics_dict):
+            for metric, value in metrics_dict.items():
+                metrics_dict[metric] = round(value / total, 5)
         else:
             raise Exception("total number of data is 0")
-        return {"pixel_acc": pa, "mean_pixel_acc": mpa, "mean_iou": miou, "frequency_weighted_iou": fwiou}
-
+        return metrics_dict
+    
     def eval_cla(self, test_loader):
-        raise NotImplementedError
+        assert self.metric_tool
+        total = 0
+        self.model.eval()
+        process = tqdm(test_loader, leave=True)
+        with torch.no_grad():
+            for data, targets, _ in process:
+                data = data.to(device=self.device, dtype=torch.float32)
+                targets = targets.to(device=self.device, dtype=torch.long)
+                assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
+                if self.conf["model"]["name"].endswith("feat"):
+                    preds, _ = self.model(data)
+                else:
+                    preds = self.model(data)
+                self.metric_tool.update(preds, targets)
+        metrics_dict = {"acc": self.metric_tool.accuracy(), "recall": self.metric_tool.recall(), "precision": self.metric_tool.precision()}
+        metrics_dict["f1"] = metrics_dict["precision"] * metrics_dict["recall"] * 2 / (metrics_dict["precision"] + metrics_dict["recall"])
+        return metrics_dict
 
     def infer(self, data_dir):
         self.model.eval()
@@ -135,24 +165,12 @@ class DeepTask(BaseTask):
         mask = create_visual_anno(pred)
         return mask
 
-    def save_model_state_dict(self, save_dir):
-        torch.save(self.model.state_dict(), save_dir)
-    
-    def load_model_state_dict(self, state_dict):
-        self.model.load_state_dict(state_dict)
-
     def run(self):
-        for epoch in range(self.epochs):
-            epoch_loss = self.train_epoch(train_loader)
-            print(f"Epoch: {epoch + 1}, Loss: {epoch_loss}")
+        raise NotImplementedError
 
     def end(self):
         if self.writer:
             self.writer.close()
-
-    # 测试方法依赖于不同任务的评估方式，放到子类实现
-    def validation(self, test_loader):
-        raise NotImplementedError
 
 
 class DeepActiveTask(DeepTask):
@@ -187,11 +205,24 @@ class DeepActiveTask(DeepTask):
             if self.writer:
                 self.writer.add_scalar("Loss/train", cycle_loss, cycle + 1)
             print("Start Evaluation.")
-            metrics = self.eval_seg(test_loader) if self.conf["task"]["type"] == "seg" else self.eval_cla(test_loader)
+            metrics_func_dict = getattr(metricUtils, self.conf["task"]["type"])()
+            metrics = self.eval_seg(test_loader, metrics_func_dict) if self.conf["task"]["type"] == "seg" else self.eval_cla(test_loader)
             for metric_name, metric_value in metrics.items():
                 print(f"{metric_name}: {metric_value}")
+                if metric_name not in self.train_status:
+                    self.train_status[metric_name] = [metric_value]
+                else:
+                    self.train_status[metric_name].append(metric_value)
                 if self.writer:
-                    self.writer.add_scalar(metric_name+"/eval", metric_value, cycle + 1)
+                    self.writer.add_scalar(metric_name+"/eval", metric_value, epoch + 1)
+            if self.conf["train"]["save_best_model"]:   
+                best_count = 0
+                for metric_name, value_list in self.train_status.items():
+                    if metrics[metric_name] == max(value_list):
+                        best_count += 1
+                if best_count == len(metrics):
+                    print("Save the best model.")
+                    torch.save(self.model.state_dict(), os.path.join("checkpoints", self.conf["task"]["name"]+".pth"))
             print("Query and move data...\n")
 
     def _init_labeling(self, init_budget, unlabeled_indices):
@@ -220,11 +251,5 @@ class DeepActiveTask(DeepTask):
         else:
             sampler = SubsetRandomSampler(self.unlabeled_indices)
         return DataLoader(self.dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=False)
-        
-        
-if __name__ == "__main__":
-    task = ActiveLearningTask("test", task_type="seg", data_root=config["data_root"]["segmentation"])
-    print(type(task.pool))
-    print(len(task.pool))
         
         

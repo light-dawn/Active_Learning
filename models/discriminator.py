@@ -1,6 +1,6 @@
 from torch import nn
 
-from utils.data import kaiming_init
+from utils.network import kaiming_init
 
 
 class Discriminator(nn.Module):
