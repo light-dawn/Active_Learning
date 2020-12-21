@@ -86,7 +86,7 @@ class FedPipeline(DeepTask):
                 else:
                     self.train_status[metric_name].append(metric_value)
                 if self.writer:
-                    self.writer.add_scalar(metric_name+"/eval", metric_value, epoch + 1)
+                    self.writer.add_scalar(metric_name+"/eval", metric_value, round + 1)
             if self.conf["train"]["save_best_model"]:   
                 best_count = 0
                 for metric_name, value_list in self.train_status.items():
