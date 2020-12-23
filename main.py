@@ -23,7 +23,7 @@ def run_task(task):
 
 def main():
     # Check if the args are valid.
-    assert args.task_type == "seg" or args.task_type == "cla", "Only support segmentation and classification currently."
+    assert args.task_type in ("seg", "cla", "two_phases"), "Only support segmentation and classification currently."
     assert args.mode in ("deep", "active", "fed", "lefal", "tefal"), "Mode not supported."
     print("Trail Mode: ", args.mode)
     print("Task Type: ", args.task_type)

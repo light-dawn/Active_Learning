@@ -86,6 +86,7 @@ def load_cla_data_paths_and_labels_specific(data_root, nc_limit=300, sep="/", de
 
     # Control the volume of NC images
     nc_count = 0
+    desc_csv = os.path.join(data_root, "lesions_slices.csv")
     paths_in_csv = read_csv(desc_csv)[1:]
     print("csv path example: ", paths_in_csv[0])
     data_paths, labels = [], []
