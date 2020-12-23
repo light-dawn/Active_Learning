@@ -69,8 +69,8 @@ class Metric:
         assert(reduction in ['none', 'mean'])
         y = torch.cat(self.y, 0)
         t = torch.cat(self.t, 0)
-        print("y shape: ", y.shape)
-        print("t shape: ", t.shape)
+        # print("y shape: ", y.shape)
+        # print("t shape: ", t.shape)
         tp, fp, fn, tn = self._process(y, t)
         if reduction == 'none':
             acc = tp / (tp + fn)

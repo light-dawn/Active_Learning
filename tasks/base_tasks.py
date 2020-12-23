@@ -89,8 +89,8 @@ class DeepTask(BaseTask):
             assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
 
             prediction = self.model(data)
-            print("Pred shape: ", prediction.shape)
-            print("Target shape: ", targets.shape)
+            # print("Pred shape: ", prediction.shape)
+            # print("Target shape: ", targets.shape)
             loss = self.criterion(prediction, targets)
             epoch_loss += loss.item()
             self.optimizer.zero_grad()
@@ -159,8 +159,8 @@ class DeepTask(BaseTask):
                 else:
                     preds = self.model(data)
                 _, pred_labels = torch.max(preds.data, 1)
-                print("Preds shape: ", preds.shape)
-                print("Targets shape: ", targets.shape)
+                # print("Preds shape: ", preds.shape)
+                # print("Targets shape: ", targets.shape)
                 self.metric_tool.update(pred_labels, targets)
         metrics_dict = {"acc": self.metric_tool.accuracy(), "recall": self.metric_tool.recall(), "precision": self.metric_tool.precision()}
         metrics_dict["f1"] = metrics_dict["precision"] * metrics_dict["recall"] * 2 / (metrics_dict["precision"] + metrics_dict["recall"])
