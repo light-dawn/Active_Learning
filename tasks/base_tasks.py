@@ -89,10 +89,10 @@ class DeepTask(BaseTask):
             assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
 
             prediction = self.model(data)
-            print(prediction.)
+            # print("Pred shape: ", prediction.shape)
+            # print("Target shape: ", targets.shape)
             loss = self.criterion(prediction, targets)
             epoch_loss += loss.item()
-
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -151,14 +151,17 @@ class DeepTask(BaseTask):
                     filter_info = self.filter_model(data)
                     print(data.shape)
                     print(filter_info.shape)
-                    data = torch.cat([data, filter_info], 1
+                    data = torch.cat([data, filter_info], 1)
                 targets = targets.to(device=self.device, dtype=torch.long)
                 assert data.shape[1] == self.model.n_channels, "数据通道数与网络通道数不匹配"
                 if self.conf["model"]["name"].endswith("feat"):
                     preds, _ = self.model(data)
                 else:
                     preds = self.model(data)
-                self.metric_tool.update(preds, targets)
+                _, pred_labels = torch.max(preds.data, 1)
+                # print("Preds shape: ", preds.shape)
+                # print("Targets shape: ", targets.shape)
+                self.metric_tool.update(pred_labels, targets)
         metrics_dict = {"acc": self.metric_tool.accuracy(), "recall": self.metric_tool.recall(), "precision": self.metric_tool.precision()}
         metrics_dict["f1"] = metrics_dict["precision"] * metrics_dict["recall"] * 2 / (metrics_dict["precision"] + metrics_dict["recall"])
         return metrics_dict

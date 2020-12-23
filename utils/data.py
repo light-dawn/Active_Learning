@@ -77,7 +77,7 @@ def read_csv(csv):
 
 
 # This is a function specific to loading CC-CCII classification data
-def load_cla_data_paths_and_labels_specific(data_root, nc_limit=30000, sep="/", desc_csv="raw_data/ct_cla/lesions_slices.csv"):
+def load_cla_data_paths_and_labels_specific(data_root, nc_limit=300, sep="/", desc_csv="raw_data/ct_cla/lesions_slices.csv"):
     all_paths = load_all_paths_recursive(data_root, data_types=["jpg", "png"])
     label_names = get_label_names(data_root)
     print("Label names: ", label_names)

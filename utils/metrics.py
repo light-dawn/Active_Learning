@@ -23,6 +23,7 @@ class MetricUtils:
 class Metric:
     '''Metric computes accuracy/precision/recall/confusion_matrix with batch updates.'''
 
+    # input the predicted label as y.
     def __init__(self, num_classes):
         self.num_classes = num_classes
         self.y = []
@@ -68,6 +69,8 @@ class Metric:
         assert(reduction in ['none', 'mean'])
         y = torch.cat(self.y, 0)
         t = torch.cat(self.t, 0)
+        # print("y shape: ", y.shape)
+        # print("t shape: ", t.shape)
         tp, fp, fn, tn = self._process(y, t)
         if reduction == 'none':
             acc = tp / (tp + fn)
